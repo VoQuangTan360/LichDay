@@ -51,13 +51,15 @@ const ZoomIn = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21"
 const ZoomOut = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const Clock3 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 12" /></Icon>;
 const Cloud = (p) => <Icon {...p}><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A5 5 0 0 0 6.5 19h11z" /></Icon>;
+const Wallet = (p) => <Icon {...p}><path d="M20 7V5a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h15v10a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V6" /><path d="M16 13h2" /></Icon>;
+const Check = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>;
 
 // ---------- Translations ----------
 const TRANSLATIONS = {
   vi: {
     langLabel: "EN",
     title: "Lịch dạy hàng tuần",
-    subtitle: "Kéo để dời buổi học · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm buổi mới",
+    subtitle: "Kéo để dời · nhấp đúp để sửa · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm",
     shrink: "Thu nhỏ",
     zoomIn: "Phóng to",
     students: "Học sinh",
@@ -68,6 +70,21 @@ const TRANSLATIONS = {
     add: "Thêm",
     cancel: "Hủy",
     addStudent: "Thêm học sinh",
+    hourlyRate: "Đơn giá/giờ",
+    payroll: "Tính công",
+    payrollTitle: "Tổng hợp công theo tháng",
+    completed: "Đã dạy",
+    planned: "Chưa dạy",
+    cancelled: "Đã nghỉ",
+    markTaught: "Đánh dấu đã dạy",
+    confirmAttendance: "Xác nhận buổi dạy",
+    confirmAttendanceText: "Tôi xác nhận buổi học này đã được dạy.",
+    undoAttendanceText: "Tôi xác nhận muốn bỏ trạng thái đã dạy của buổi học này.",
+    confirmAction: "Xác nhận",
+    sessionsCount: "Số buổi",
+    hoursCount: "Số giờ",
+    totalAmount: "Thành tiền",
+    noLessons: "Không có buổi học trong tháng này.",
     addSession: "Thêm buổi học",
     editSession: "Sửa buổi học",
     day: "Ngày",
@@ -105,7 +122,7 @@ const TRANSLATIONS = {
   en: {
     langLabel: "VI",
     title: "Weekly Teaching Schedule",
-    subtitle: "Drag to move a session · drag the bottom edge to resize · click an empty slot to add",
+    subtitle: "Drag to move · double-click to edit · drag the bottom edge to resize · click an empty slot to add",
     shrink: "Zoom out",
     zoomIn: "Zoom in",
     students: "Students",
@@ -116,6 +133,21 @@ const TRANSLATIONS = {
     add: "Add",
     cancel: "Cancel",
     addStudent: "Add student",
+    hourlyRate: "Hourly rate",
+    payroll: "Payroll",
+    payrollTitle: "Monthly payroll summary",
+    completed: "Completed",
+    planned: "Planned",
+    cancelled: "Cancelled",
+    markTaught: "Mark as taught",
+    confirmAttendance: "Confirm attendance",
+    confirmAttendanceText: "I confirm that this lesson was taught.",
+    undoAttendanceText: "I confirm that I want to remove the taught status from this lesson.",
+    confirmAction: "Confirm",
+    sessionsCount: "Sessions",
+    hoursCount: "Hours",
+    totalAmount: "Amount",
+    noLessons: "No lessons in this month.",
     addSession: "Add session",
     editSession: "Edit session",
     day: "Day",
@@ -180,11 +212,27 @@ function fmtTime(mins) {
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function currentMonthKey() {
+  return dateKey(new Date()).slice(0, 7);
+}
+function formatMoney(value, lang = "vi") {
+  return new Intl.NumberFormat(lang === "vi" ? "vi-VN" : "en-US", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(Math.round(value || 0));
+}
 
 const seedStudents = [
-  { id: "s1", name: "Học sinh A", color: 0 },
-  { id: "s2", name: "Học sinh B", color: 1 },
-  { id: "s3", name: "Học sinh C", color: 2 },
+  { id: "s1", name: "Học sinh A", color: 0, hourlyRate: 200000 },
+  { id: "s2", name: "Học sinh B", color: 1, hourlyRate: 200000 },
+  { id: "s3", name: "Học sinh C", color: 2, hourlyRate: 200000 },
 ];
 const seedSessions = [
   { id: uid(), studentId: "s1", day: 0, start: 17 * 60, duration: 90, note: "Toán lớp 9" },
@@ -240,8 +288,14 @@ function App() {
   const [modal, setModal] = useState(null);
   const [addingStudent, setAddingStudent] = useState(false);
   const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentRate, setNewStudentRate] = useState(200000);
+  const [studentModal, setStudentModal] = useState(null);
   const [confirmDeleteStudent, setConfirmDeleteStudent] = useState(null);
   const [now, setNow] = useState(new Date());
+  const [attendance, setAttendance] = useState(savedData?.attendance || {});
+  const [payrollOpen, setPayrollOpen] = useState(false);
+  const [payrollMonth, setPayrollMonth] = useState(currentMonthKey());
+  const [attendanceConfirm, setAttendanceConfirm] = useState(null);
 
   const [syncCfg, setSyncCfg] = useState(() => readSyncCfgFromHash() || loadSyncCfg());
   const [syncStatus, setSyncStatus] = useState("offline"); // offline | connecting | synced | error
@@ -253,6 +307,7 @@ function App() {
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
+  const suppressSessionEditRef = useRef(false);
   const dbRef = useRef(null);
   const unsubRef = useRef(null);
   const applyingRemoteRef = useRef(false);
@@ -307,10 +362,11 @@ function App() {
             applyingRemoteRef.current = true;
             if (data.students) setStudents(data.students);
             if (data.sessions) setSessions(data.sessions);
+            if (data.attendance) setAttendance(data.attendance);
             if (data.lang) setLang(data.lang);
             if (data.rowHeight) setRowHeight(data.rowHeight);
           } else {
-            docRef.set({ students, sessions, lang, rowHeight, updatedAt: Date.now() });
+            docRef.set({ students, sessions, attendance, lang, rowHeight, updatedAt: Date.now() });
           }
         },
         (err) => {
@@ -331,7 +387,7 @@ function App() {
   // save locally always; push to cloud (debounced) unless the change just arrived from the cloud
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ students, sessions, lang, rowHeight }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ students, sessions, attendance, lang, rowHeight }));
     } catch (e) {
       console.warn("Could not save schedule:", e);
     }
@@ -345,14 +401,14 @@ function App() {
         dbRef.current
           .collection("schedules")
           .doc(syncCfg.syncCode)
-          .set({ students, sessions, lang, rowHeight, updatedAt: Date.now() }, { merge: true })
+          .set({ students, sessions, attendance, lang, rowHeight, updatedAt: Date.now() }, { merge: true })
           .catch((e) => {
             console.warn("Push failed:", e);
             setSyncStatus("error");
           });
       }, 500);
     }
-  }, [students, sessions, lang, rowHeight]);
+  }, [students, sessions, attendance, lang, rowHeight]);
 
   function connectSync() {
     try {
@@ -394,9 +450,26 @@ function App() {
   function addStudent() {
     const name = newStudentName.trim();
     if (!name) return;
-    setStudents((prev) => [...prev, { id: uid(), name, color: prev.length % STUDENT_COLORS.length }]);
+    setStudents((prev) => [
+      ...prev,
+      { id: uid(), name, color: prev.length % STUDENT_COLORS.length, hourlyRate: Math.max(0, Number(newStudentRate) || 0) },
+    ]);
     setNewStudentName("");
+    setNewStudentRate(200000);
     setAddingStudent(false);
+  }
+
+  function saveStudentModal() {
+    const name = studentModal.name.trim();
+    if (!name) return;
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === studentModal.id
+          ? { ...s, name, hourlyRate: Math.max(0, Number(studentModal.hourlyRate) || 0) }
+          : s
+      )
+    );
+    setStudentModal(null);
   }
 
   function removeStudent(id) {
@@ -484,6 +557,7 @@ function App() {
       const dy = e.clientY - ds.startY;
       if (!ds.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
       ds.moved = true;
+      suppressSessionEditRef.current = true;
 
       const deltaMinutes = (dy / rowHeight) * 60;
       let newStart = Math.round((ds.origStart + deltaMinutes) / SNAP) * SNAP;
@@ -503,9 +577,15 @@ function App() {
   );
 
   const onDragUp = useCallback(() => {
+    const wasMoved = Boolean(dragState.current?.moved);
     window.removeEventListener("mousemove", onDragMove);
     window.removeEventListener("mouseup", onDragUp);
     dragState.current = null;
+    if (wasMoved) {
+      window.setTimeout(() => {
+        suppressSessionEditRef.current = false;
+      }, 500);
+    }
   }, [onDragMove]);
 
   const resizeState = useRef(null);
@@ -553,11 +633,48 @@ function App() {
   const jsDay = now.getDay();
   const todayIndex = (jsDay + 6) % 7;
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const mondayOfCurrentWeek = new Date(now);
+  mondayOfCurrentWeek.setHours(0, 0, 0, 0);
+  mondayOfCurrentWeek.setDate(now.getDate() - todayIndex);
+  function currentWeekOccurrenceKey(session) {
+    const lessonDate = new Date(mondayOfCurrentWeek);
+    lessonDate.setDate(mondayOfCurrentWeek.getDate() + session.day);
+    return `${dateKey(lessonDate)}|${session.id}`;
+  }
 
   const studentById = (id) => students.find((s) => s.id === id);
   const colorFor = (student) => STUDENT_COLORS[(student?.color ?? 0) % STUDENT_COLORS.length];
 
   const visibleSessions = sessions.filter((s) => !filterId || s.studentId === filterId);
+
+  const [payrollYear, payrollMonthNumber] = payrollMonth.split("-").map(Number);
+  const payrollOccurrences = [];
+  if (payrollYear && payrollMonthNumber) {
+    const daysInMonth = new Date(payrollYear, payrollMonthNumber, 0).getDate();
+    for (let dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth += 1) {
+      const date = new Date(payrollYear, payrollMonthNumber - 1, dayOfMonth);
+      const weekday = (date.getDay() + 6) % 7;
+      sessions
+        .filter((session) => session.day === weekday)
+        .forEach((session) => {
+          const key = `${dateKey(date)}|${session.id}`;
+          const student = studentById(session.studentId);
+          const status = attendance[key] || "planned";
+          const amount = status === "completed" ? (session.duration / 60) * (Number(student?.hourlyRate) || 0) : 0;
+          payrollOccurrences.push({ key, date, session, student, status, amount });
+        });
+    }
+  }
+  const payrollRows = students.map((student) => {
+    const rows = payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed");
+    return {
+      student,
+      sessions: rows.length,
+      minutes: rows.reduce((sum, item) => sum + item.session.duration, 0),
+      amount: rows.reduce((sum, item) => sum + item.amount, 0),
+    };
+  }).filter((row) => row.sessions > 0);
+  const payrollTotal = payrollRows.reduce((sum, row) => sum + row.amount, 0);
 
   return (
     <div
@@ -574,6 +691,15 @@ function App() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPayrollOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{ background: "#12B886", color: "#FFFFFF" }}
+            title={t.payrollTitle}
+          >
+            <Wallet size={16} />
+            <span className="hidden sm:inline">{t.payroll}</span>
+          </button>
           <button
             onClick={() => {
               setSyncConfigText("");
@@ -669,6 +795,17 @@ function App() {
                   >
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.bg }} />
                     <span className="flex-1 truncate">{s.name}</span>
+                    <button
+                      className="text-[10px] px-1.5 py-0.5 rounded hover:opacity-80"
+                      style={{ background: "#F3F5F7", color: "#6B7A99" }}
+                      title={t.hourlyRate}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStudentModal({ ...s, hourlyRate: s.hourlyRate || 0 });
+                      }}
+                    >
+                      {Number(s.hourlyRate || 0).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
+                    </button>
                     <span className="text-xs" style={{ color: "#6B7A99" }}>
                       {count}
                     </span>
@@ -716,6 +853,18 @@ function App() {
                   className="w-full px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.hourlyRate}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    value={newStudentRate}
+                    onChange={(e) => setNewStudentRate(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={addStudent}
@@ -815,15 +964,18 @@ function App() {
                         const top = ((s.start - START_MIN) / 60) * rowHeight;
                         const height = Math.max((s.duration / 60) * rowHeight, 18);
                         const compact = height < 34;
+                        const occurrenceKey = currentWeekOccurrenceKey(s);
+                        const taught = attendance[occurrenceKey] === "completed";
                         return (
                           <div
                             key={s.id}
                             onMouseDown={(e) => onSessionMouseDown(e, s)}
-                            onClick={(e) => {
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => {
                               e.stopPropagation();
-                              if (!dragState.current || !dragState.current.moved) openEditModal(s);
+                              if (!suppressSessionEditRef.current) openEditModal(s);
                             }}
-                            className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden select-none shadow-sm"
+                            className="absolute left-0.5 right-0.5 rounded-md pl-1.5 pr-7 py-1 overflow-hidden select-none shadow-sm"
                             style={{
                               top,
                               height,
@@ -833,6 +985,32 @@ function App() {
                               zIndex: 5,
                             }}
                           >
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center cursor-pointer"
+                              style={{ background: taught ? "#FFFFFF" : "rgba(255,255,255,0.88)" }}
+                              title={t.markTaught}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAttendanceConfirm({
+                                  key: occurrenceKey,
+                                  session: s,
+                                  student,
+                                  taught,
+                                  confirmed: false,
+                                });
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taught}
+                                readOnly
+                                tabIndex="-1"
+                                className="pointer-events-none w-3.5 h-3.5 accent-emerald-600"
+                                aria-label={t.markTaught}
+                              />
+                            </button>
                             <div className="text-[11px] font-semibold leading-tight truncate">
                               {student?.name || "?"}
                             </div>
@@ -1028,6 +1206,198 @@ function App() {
               >
                 {t.save}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attendanceConfirm && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.5)" }}
+          onClick={() => setAttendanceConfirm(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
+            style={{ background: "#FFFFFF" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-2"><Check size={17} /> {t.confirmAttendance}</h2>
+              <button onClick={() => setAttendanceConfirm(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+            </div>
+            <div className="rounded-lg p-3 mb-4" style={{ background: "#F3F5F7" }}>
+              <div className="text-sm font-semibold">{attendanceConfirm.student?.name || "?"}</div>
+              <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>
+                {attendanceConfirm.key.split("|")[0]} · {fmtTime(attendanceConfirm.session.start)}–{fmtTime(attendanceConfirm.session.start + attendanceConfirm.session.duration)}
+              </div>
+              {attendanceConfirm.session.note && <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>{attendanceConfirm.session.note}</div>}
+            </div>
+            <label className="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer" style={{ borderColor: attendanceConfirm.confirmed ? "#12B886" : "#DDE3E8", background: attendanceConfirm.confirmed ? "#E4FBF3" : "#FFFFFF" }}>
+              <input
+                type="checkbox"
+                checked={attendanceConfirm.confirmed}
+                onChange={(e) => setAttendanceConfirm({ ...attendanceConfirm, confirmed: e.target.checked })}
+                className="mt-0.5 w-4 h-4 accent-emerald-600"
+              />
+              <span className="text-sm">{attendanceConfirm.taught ? t.undoAttendanceText : t.confirmAttendanceText}</span>
+            </label>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setAttendanceConfirm(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
+              <button
+                disabled={!attendanceConfirm.confirmed}
+                onClick={() => {
+                  setAttendance((prev) => ({ ...prev, [attendanceConfirm.key]: attendanceConfirm.taught ? "planned" : "completed" }));
+                  setAttendanceConfirm(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm text-white font-medium transition"
+                style={{ background: attendanceConfirm.confirmed ? "#12B886" : "#B7C2D0", cursor: attendanceConfirm.confirmed ? "pointer" : "not-allowed" }}
+              >
+                {t.confirmAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {studentModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.45)" }}
+          onClick={() => setStudentModal(null)}
+        >
+          <div className="w-full max-w-sm rounded-xl p-5 shadow-xl" style={{ background: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold">{t.students}</h2>
+              <button onClick={() => setStudentModal(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.studentNamePlaceholder}</label>
+                <input
+                  value={studentModal.name}
+                  onChange={(e) => setStudentModal({ ...studentModal, name: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.hourlyRate}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="10000"
+                  value={studentModal.hourlyRate}
+                  onChange={(e) => setStudentModal({ ...studentModal, hourlyRate: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setStudentModal(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
+              <button onClick={saveStudentModal} className="px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ background: "#1B2A4A" }}>{t.save}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {payrollOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-6"
+          style={{ background: "rgba(27,42,74,0.55)" }}
+          onClick={() => setPayrollOpen(false)}
+        >
+          <div
+            className="w-full max-w-5xl rounded-xl shadow-xl flex flex-col overflow-hidden"
+            style={{ background: "#FFFFFF", maxHeight: "92vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-5 border-b flex items-center justify-between gap-3" style={{ borderColor: "#DDE3E8" }}>
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2"><Wallet size={18} /> {t.payrollTitle}</h2>
+                <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>{t.completed}: {payrollOccurrences.filter((x) => x.status === "completed").length} / {payrollOccurrences.length}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="month"
+                  value={payrollMonth}
+                  onChange={(e) => setPayrollMonth(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm border font-medium"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+                <button onClick={() => setPayrollOpen(false)} style={{ color: "#6B7A99" }}><X size={20} /></button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.sessionsCount}</div>
+                  <div className="text-xl font-semibold mt-1">{payrollRows.reduce((sum, row) => sum + row.sessions, 0)}</div>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.hoursCount}</div>
+                  <div className="text-xl font-semibold mt-1">{(payrollRows.reduce((sum, row) => sum + row.minutes, 0) / 60).toFixed(1)}</div>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "#E4FBF3" }}>
+                  <div className="text-xs" style={{ color: "#087F5B" }}>{t.totalAmount}</div>
+                  <div className="text-xl font-semibold mt-1" style={{ color: "#087F5B" }}>{formatMoney(payrollTotal, lang)}</div>
+                </div>
+              </div>
+
+              {payrollRows.length > 0 && (
+                <div className="overflow-x-auto border rounded-lg mb-5" style={{ borderColor: "#DDE3E8" }}>
+                  <table className="w-full text-sm">
+                    <thead style={{ background: "#F3F5F7", color: "#6B7A99" }}>
+                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.sessionsCount}</th><th className="text-right px-3 py-2">{t.hoursCount}</th><th className="text-right px-3 py-2">{t.hourlyRate}</th><th className="text-right px-3 py-2">{t.totalAmount}</th></tr>
+                    </thead>
+                    <tbody>
+                      {payrollRows.map((row) => (
+                        <tr key={row.student.id} className="border-t" style={{ borderColor: "#DDE3E8" }}>
+                          <td className="px-3 py-2 font-medium">{row.student.name}</td>
+                          <td className="px-3 py-2 text-right">{row.sessions}</td>
+                          <td className="px-3 py-2 text-right">{(row.minutes / 60).toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right">{formatMoney(row.student.hourlyRate, lang)}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{formatMoney(row.amount, lang)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                {payrollOccurrences.length === 0 && <div className="text-sm text-center py-8" style={{ color: "#6B7A99" }}>{t.noLessons}</div>}
+                {payrollOccurrences.map((item) => (
+                  <div key={item.key} className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: "#DDE3E8" }}>
+                    <div className="sm:w-36 shrink-0">
+                      <div className="text-sm font-semibold">{item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                      <div className="text-xs font-mono" style={{ color: "#6B7A99" }}>{fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{item.student?.name || "?"}</div>
+                      <div className="text-xs truncate" style={{ color: "#6B7A99" }}>{item.session.note || `${item.session.duration} phút`} · {formatMoney((item.session.duration / 60) * (Number(item.student?.hourlyRate) || 0), lang)}</div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      {[
+                        ["completed", t.completed, "#12B886", "#E4FBF3"],
+                        ["planned", t.planned, "#6B7A99", "#F3F5F7"],
+                        ["cancelled", t.cancelled, "#E03131", "#FFECEC"],
+                      ].map(([status, label, color, soft]) => (
+                        <button
+                          key={status}
+                          onClick={() => setAttendance((prev) => ({ ...prev, [item.key]: status }))}
+                          className="px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+                          style={{ background: item.status === status ? color : soft, color: item.status === status ? "#FFFFFF" : color }}
+                        >
+                          {status === "completed" && <Check size={12} />} {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
