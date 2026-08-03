@@ -162,13 +162,25 @@ const seedSessions = [
   { id: uid(), studentId: "s3", day: 5, start: 9 * 60, duration: 120, note: "Ôn thi" },
 ];
 
+const STORAGE_KEY = "tutor_schedule_v1";
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn("Could not read saved schedule:", e);
+  }
+  return null;
+}
+const savedData = loadSaved();
+
 function App() {
-  const [lang, setLang] = useState("vi");
+  const [lang, setLang] = useState(savedData?.lang || "en");
   const t = TRANSLATIONS[lang];
-  const [students, setStudents] = useState(seedStudents);
-  const [sessions, setSessions] = useState(seedSessions);
+  const [students, setStudents] = useState(savedData?.students || seedStudents);
+  const [sessions, setSessions] = useState(savedData?.sessions || seedSessions);
   const [filterId, setFilterId] = useState(null);
-  const [rowHeight, setRowHeight] = useState(56);
+  const [rowHeight, setRowHeight] = useState(savedData?.rowHeight || 56);
   const [modal, setModal] = useState(null);
   const [addingStudent, setAddingStudent] = useState(false);
   const [newStudentName, setNewStudentName] = useState("");
@@ -180,9 +192,20 @@ function App() {
   const dragState = useRef(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(t);
+    const t2 = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t2);
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ students, sessions, lang, rowHeight })
+      );
+    } catch (e) {
+      console.warn("Could not save schedule:", e);
+    }
+  }, [students, sessions, lang, rowHeight]);
 
   const nextColor = students.length % STUDENT_COLORS.length;
 
