@@ -49,9 +49,76 @@ const ZoomIn = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21"
 const ZoomOut = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const Clock3 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 12" /></Icon>;
 
-// ---------- Constants ----------
-const DAY_LABELS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
-const DAY_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+// ---------- Translations ----------
+const TRANSLATIONS = {
+  vi: {
+    langLabel: "EN",
+    title: "Lịch dạy hàng tuần",
+    subtitle: "Kéo để dời buổi học · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm buổi mới",
+    shrink: "Thu nhỏ",
+    zoomIn: "Phóng to",
+    students: "Học sinh",
+    allStudents: "Tất cả học sinh",
+    deleteConfirm: "Xóa?",
+    deleteStudentTitle: "Xóa học sinh",
+    studentNamePlaceholder: "Tên học sinh",
+    add: "Thêm",
+    cancel: "Hủy",
+    addStudent: "Thêm học sinh",
+    addSession: "Thêm buổi học",
+    editSession: "Sửa buổi học",
+    day: "Ngày",
+    startTime: "Giờ bắt đầu",
+    duration: "Thời lượng",
+    note: "Ghi chú (tùy chọn)",
+    notePlaceholder: "Ví dụ: Toán, Tiếng Anh…",
+    delete: "Xóa",
+    save: "Lưu",
+    dayLabels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
+    dayShort: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    durations: [
+      { m: 30, label: "30 phút" },
+      { m: 45, label: "45 phút" },
+      { m: 60, label: "1 giờ" },
+      { m: 90, label: "1.5 giờ" },
+      { m: 120, label: "2 giờ" },
+    ],
+  },
+  en: {
+    langLabel: "VI",
+    title: "Weekly Teaching Schedule",
+    subtitle: "Drag to move a session · drag the bottom edge to resize · click an empty slot to add",
+    shrink: "Zoom out",
+    zoomIn: "Zoom in",
+    students: "Students",
+    allStudents: "All students",
+    deleteConfirm: "Delete?",
+    deleteStudentTitle: "Delete student",
+    studentNamePlaceholder: "Student name",
+    add: "Add",
+    cancel: "Cancel",
+    addStudent: "Add student",
+    addSession: "Add session",
+    editSession: "Edit session",
+    day: "Day",
+    startTime: "Start time",
+    duration: "Duration",
+    note: "Note (optional)",
+    notePlaceholder: "e.g. Math, English…",
+    delete: "Delete",
+    save: "Save",
+    dayLabels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    dayShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    durations: [
+      { m: 30, label: "30 min" },
+      { m: 45, label: "45 min" },
+      { m: 60, label: "1 hour" },
+      { m: 90, label: "1.5 hours" },
+      { m: 120, label: "2 hours" },
+    ],
+  },
+};
+
 const STUDENT_COLORS = [
   { bg: "#4C6EF5", soft: "#EAF0FF" },
   { bg: "#12B886", soft: "#E4FBF3" },
@@ -61,13 +128,6 @@ const STUDENT_COLORS = [
   { bg: "#FA5252", soft: "#FFECEC" },
   { bg: "#0F8B8D", soft: "#E3F6F6" },
   { bg: "#B5651D", soft: "#F8EEE3" },
-];
-const DURATIONS = [
-  { m: 30, label: "30 phút" },
-  { m: 45, label: "45 phút" },
-  { m: 60, label: "1 giờ" },
-  { m: 90, label: "1.5 giờ" },
-  { m: 120, label: "2 giờ" },
 ];
 const START_HOUR = 7;
 const END_HOUR = 23;
@@ -103,6 +163,8 @@ const seedSessions = [
 ];
 
 function App() {
+  const [lang, setLang] = useState("vi");
+  const t = TRANSLATIONS[lang];
   const [students, setStudents] = useState(seedStudents);
   const [sessions, setSessions] = useState(seedSessions);
   const [filterId, setFilterId] = useState(null);
@@ -300,18 +362,26 @@ function App() {
       <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "#1B2A4A" }}>
         <div>
           <h1 className="text-xl font-semibold tracking-tight" style={{ color: "#F3F5F7" }}>
-            Lịch dạy hàng tuần
+            {t.title}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "#8FA0C2" }}>
-            Kéo để dời buổi học · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm buổi mới
+            {t.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
+            className="px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{ background: "#25365C", color: "#F3F5F7" }}
+            title="Switch language"
+          >
+            {t.langLabel}
+          </button>
+          <button
             onClick={() => setRowHeight((h) => clamp(h - 12, 32, 100))}
             className="p-2 rounded-lg hover:opacity-80 transition"
             style={{ background: "#25365C", color: "#F3F5F7" }}
-            title="Thu nhỏ"
+            title={t.shrink}
           >
             <ZoomOut size={16} />
           </button>
@@ -319,7 +389,7 @@ function App() {
             onClick={() => setRowHeight((h) => clamp(h + 12, 32, 100))}
             className="p-2 rounded-lg hover:opacity-80 transition"
             style={{ background: "#25365C", color: "#F3F5F7" }}
-            title="Phóng to"
+            title={t.zoomIn}
           >
             <ZoomIn size={16} />
           </button>
@@ -331,7 +401,7 @@ function App() {
           <div className="p-4">
             <div className="flex items-center gap-2 mb-3" style={{ color: "#6B7A99" }}>
               <Users size={15} />
-              <span className="text-xs font-semibold uppercase tracking-wide">Học sinh</span>
+              <span className="text-xs font-semibold uppercase tracking-wide">{t.students}</span>
             </div>
 
             <button
@@ -342,7 +412,7 @@ function App() {
                 color: filterId === null ? "#FFFFFF" : "#16213E",
               }}
             >
-              Tất cả học sinh
+              {t.allStudents}
             </button>
 
             <div className="flex flex-col gap-1 mt-1">
@@ -371,7 +441,7 @@ function App() {
                           removeStudent(s.id);
                         }}
                       >
-                        Xóa?
+                        {t.deleteConfirm}
                       </button>
                     ) : (
                       <button
@@ -382,7 +452,7 @@ function App() {
                           setConfirmDeleteStudent(s.id);
                           setTimeout(() => setConfirmDeleteStudent(null), 2500);
                         }}
-                        title="Xóa học sinh"
+                        title={t.deleteStudentTitle}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -402,7 +472,7 @@ function App() {
                     if (e.key === "Enter") addStudent();
                     if (e.key === "Escape") setAddingStudent(false);
                   }}
-                  placeholder="Tên học sinh"
+                  placeholder={t.studentNamePlaceholder}
                   className="w-full px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
@@ -412,14 +482,14 @@ function App() {
                     className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white"
                     style={{ background: STUDENT_COLORS[nextColor].bg }}
                   >
-                    Thêm
+                    {t.add}
                   </button>
                   <button
                     onClick={() => setAddingStudent(false)}
                     className="px-3 py-1.5 rounded-lg text-sm"
                     style={{ background: "#F3F5F7" }}
                   >
-                    Hủy
+                    {t.cancel}
                   </button>
                 </div>
               </div>
@@ -429,7 +499,7 @@ function App() {
                 className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-dashed transition hover:opacity-80"
                 style={{ borderColor: "#B7C2D0", color: "#6B7A99" }}
               >
-                <Plus size={14} /> Thêm học sinh
+                <Plus size={14} /> {t.addStudent}
               </button>
             )}
           </div>
@@ -439,7 +509,7 @@ function App() {
           <div className="flex border-b" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
             <div className="w-14 shrink-0" />
             <div className="flex-1 grid grid-cols-7">
-              {DAY_LABELS.map((d, i) => (
+              {t.dayLabels.map((d, i) => (
                 <div
                   key={d}
                   className="py-2.5 text-center text-sm font-medium border-l"
@@ -450,7 +520,7 @@ function App() {
                   }}
                 >
                   <span className="hidden sm:inline">{d}</span>
-                  <span className="sm:hidden">{DAY_SHORT[i]}</span>
+                  <span className="sm:hidden">{t.dayShort[i]}</span>
                 </div>
               ))}
             </div>
@@ -564,7 +634,7 @@ function App() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold">
-                {modal.mode === "add" ? "Thêm buổi học" : "Sửa buổi học"}
+                {modal.mode === "add" ? t.addSession : t.editSession}
               </h2>
               <button onClick={() => setModal(null)} style={{ color: "#6B7A99" }}>
                 <X size={18} />
@@ -574,7 +644,7 @@ function App() {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Học sinh
+                  {t.students}
                 </label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {students.map((s) => {
@@ -600,10 +670,10 @@ function App() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Ngày
+                  {t.day}
                 </label>
                 <div className="grid grid-cols-7 gap-1 mt-1.5">
-                  {DAY_SHORT.map((d, i) => (
+                  {t.dayShort.map((d, i) => (
                     <button
                       key={d}
                       onClick={() => setModal({ ...modal, day: i })}
@@ -622,7 +692,7 @@ function App() {
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                    Giờ bắt đầu
+                    {t.startTime}
                   </label>
                   <div className="flex gap-1 mt-1.5">
                     <select
@@ -658,7 +728,7 @@ function App() {
 
                 <div className="flex-1">
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                    Thời lượng
+                    {t.duration}
                   </label>
                   <select
                     className="w-full mt-1.5 px-2 py-1.5 rounded-lg text-sm border"
@@ -666,7 +736,7 @@ function App() {
                     value={modal.duration}
                     onChange={(e) => setModal({ ...modal, duration: Number(e.target.value) })}
                   >
-                    {DURATIONS.map((d) => (
+                    {t.durations.map((d) => (
                       <option key={d.m} value={d.m}>
                         {d.label}
                       </option>
@@ -677,12 +747,12 @@ function App() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Ghi chú (tùy chọn)
+                  {t.note}
                 </label>
                 <input
                   value={modal.note}
                   onChange={(e) => setModal({ ...modal, note: e.target.value })}
-                  placeholder="Ví dụ: Toán, Tiếng Anh…"
+                  placeholder={t.notePlaceholder}
                   className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
@@ -690,7 +760,7 @@ function App() {
 
               <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#8896AC" }}>
                 <Clock3 size={12} />
-                {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {DAY_LABELS[modal.day]}
+                {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {t.dayLabels[modal.day]}
               </div>
             </div>
 
@@ -702,7 +772,7 @@ function App() {
                   style={{ background: "#FFECEC", color: "#E03131" }}
                 >
                   <Trash2 size={14} className="inline -mt-0.5 mr-1" />
-                  Xóa
+                  {t.delete}
                 </button>
               )}
               <div className="flex-1" />
@@ -711,14 +781,14 @@ function App() {
                 className="px-3 py-2 rounded-lg text-sm"
                 style={{ background: "#F3F5F7" }}
               >
-                Hủy
+                {t.cancel}
               </button>
               <button
                 onClick={saveModal}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium"
                 style={{ background: "#1B2A4A" }}
               >
-                Lưu
+                {t.save}
               </button>
             </div>
           </div>
