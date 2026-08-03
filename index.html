@@ -787,15 +787,13 @@ function App() {
                     className="relative border-l cursor-crosshair"
                     style={{
                       borderColor: "#DDE3E8",
-                      backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${
-                        rowHeight - 1
-                      }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`,
-                      background:
-                        dayIndex === todayIndex
-                          ? `#FBFCFE repeating-linear-gradient(to bottom, transparent 0, transparent ${
-                              rowHeight - 1
-                            }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`
-                          : undefined,
+                      background: `${dayIndex === todayIndex ? "#FBFCFE " : "#FFFFFF "}repeating-linear-gradient(
+                        to bottom,
+                        transparent 0,
+                        transparent ${rowHeight - 1}px,
+                        #EBEEF1 ${rowHeight - 1}px,
+                        #EBEEF1 ${rowHeight}px
+                      )`,
                     }}
                     onClick={(e) => onColumnClick(e, dayIndex)}
                   >
