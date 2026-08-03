@@ -356,7 +356,11 @@ function App() {
 
   function connectSync() {
     try {
-      const cfg = JSON.parse(syncConfigText.replace(/(\w+):/g, '"$1":').replace(/'/g, '"'));
+      const cfg = JSON.parse(
+        syncConfigText
+          .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+          .replace(/'/g, '"')
+      );
       const code = syncCodeInput.trim() || randomSyncCode();
       setSyncCfg({ ...cfg, syncCode: code });
       setSyncModalOpen(false);
