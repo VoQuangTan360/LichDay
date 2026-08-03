@@ -8,6 +8,8 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
@@ -48,6 +50,7 @@ const Users = (p) => <Icon {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4
 const ZoomIn = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const ZoomOut = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const Clock3 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 12" /></Icon>;
+const Cloud = (p) => <Icon {...p}><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A5 5 0 0 0 6.5 19h11z" /></Icon>;
 
 // ---------- Translations ----------
 const TRANSLATIONS = {
@@ -74,6 +77,21 @@ const TRANSLATIONS = {
     notePlaceholder: "Ví dụ: Toán, Tiếng Anh…",
     delete: "Xóa",
     save: "Lưu",
+    syncOffline: "Chưa đồng bộ",
+    syncConnecting: "Đang kết nối…",
+    syncSynced: "Đã đồng bộ",
+    syncError: "Lỗi đồng bộ",
+    syncTitle: "Đồng bộ nhiều thiết bị",
+    syncIntro: "Dán cấu hình Firebase (Firestore) của bạn để lịch dạy tự động đồng bộ giữa các thiết bị.",
+    syncConfigLabel: "Cấu hình Firebase",
+    syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
+    syncCodeLabel: "Mã đồng bộ (để trống sẽ tự tạo)",
+    syncCodePlaceholder: "ví dụ: lop-hoc-cua-toi",
+    connect: "Kết nối",
+    disconnect: "Ngắt kết nối",
+    copyLink: "Sao chép liên kết đồng bộ",
+    syncedAs: "Mã đồng bộ hiện tại",
+    syncHelp: "Mở liên kết này trên thiết bị khác để xem cùng một lịch.",
     dayLabels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
     dayShort: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     durations: [
@@ -107,6 +125,21 @@ const TRANSLATIONS = {
     notePlaceholder: "e.g. Math, English…",
     delete: "Delete",
     save: "Save",
+    syncOffline: "Not synced",
+    syncConnecting: "Connecting…",
+    syncSynced: "Synced",
+    syncError: "Sync error",
+    syncTitle: "Sync across devices",
+    syncIntro: "Paste your own Firebase (Firestore) config to sync this schedule across devices.",
+    syncConfigLabel: "Firebase config",
+    syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
+    syncCodeLabel: "Sync code (leave blank to generate one)",
+    syncCodePlaceholder: "e.g. my-tutoring-schedule",
+    connect: "Connect",
+    disconnect: "Disconnect",
+    copyLink: "Copy sync link",
+    syncedAs: "Current sync code",
+    syncHelp: "Open this link on another device to see the same schedule.",
     dayLabels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     dayShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     durations: [
@@ -174,6 +207,29 @@ function loadSaved() {
 }
 const savedData = loadSaved();
 
+// ---------- Cloud sync (optional, via the user's own Firebase project) ----------
+const SYNC_CFG_KEY = "tutor_schedule_sync_cfg";
+function loadSyncCfg() {
+  try {
+    const raw = localStorage.getItem(SYNC_CFG_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function readSyncCfgFromHash() {
+  const h = window.location.hash;
+  if (!h.startsWith("#sync=")) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(h.slice(6))));
+    const parsed = JSON.parse(json);
+    if (parsed && parsed.apiKey && parsed.projectId && parsed.syncCode) return parsed;
+  } catch (e) {}
+  return null;
+}
+function randomSyncCode() {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
+}
+
 function App() {
   const [lang, setLang] = useState(savedData?.lang || "en");
   const t = TRANSLATIONS[lang];
@@ -187,25 +243,147 @@ function App() {
   const [confirmDeleteStudent, setConfirmDeleteStudent] = useState(null);
   const [now, setNow] = useState(new Date());
 
+  const [syncCfg, setSyncCfg] = useState(() => readSyncCfgFromHash() || loadSyncCfg());
+  const [syncStatus, setSyncStatus] = useState("offline"); // offline | connecting | synced | error
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncConfigText, setSyncConfigText] = useState("");
+  const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState("");
+
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
+  const dbRef = useRef(null);
+  const unsubRef = useRef(null);
+  const applyingRemoteRef = useRef(false);
+  const pushTimerRef = useRef(null);
 
   useEffect(() => {
     const t2 = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t2);
   }, []);
 
+  // persist config to localStorage + clean the URL hash once read
+  useEffect(() => {
+    if (readSyncCfgFromHash() && window.history?.replaceState) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    if (syncCfg) {
+      try {
+        localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(syncCfg));
+      } catch (e) {}
+    } else {
+      try {
+        localStorage.removeItem(SYNC_CFG_KEY);
+      } catch (e) {}
+    }
+    // eslint-disable-next-line
+  }, [syncCfg]);
+
+  // connect to Firestore whenever syncCfg changes
+  useEffect(() => {
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
+    }
+    if (!syncCfg || !syncCfg.apiKey || !syncCfg.projectId || !syncCfg.syncCode) {
+      dbRef.current = null;
+      setSyncStatus("offline");
+      return;
+    }
+    setSyncStatus("connecting");
+    try {
+      const appName = "tutor-schedule";
+      const existing = firebase.apps.find((a) => a.name === appName);
+      const fbApp = existing || firebase.initializeApp(syncCfg, appName);
+      const db = firebase.firestore(fbApp);
+      dbRef.current = db;
+      const docRef = db.collection("schedules").doc(syncCfg.syncCode);
+      unsubRef.current = docRef.onSnapshot(
+        (snap) => {
+          setSyncStatus("synced");
+          if (snap.exists) {
+            const data = snap.data();
+            applyingRemoteRef.current = true;
+            if (data.students) setStudents(data.students);
+            if (data.sessions) setSessions(data.sessions);
+            if (data.lang) setLang(data.lang);
+            if (data.rowHeight) setRowHeight(data.rowHeight);
+          } else {
+            docRef.set({ students, sessions, lang, rowHeight, updatedAt: Date.now() });
+          }
+        },
+        (err) => {
+          console.warn("Sync error:", err);
+          setSyncStatus("error");
+        }
+      );
+    } catch (e) {
+      console.warn("Could not connect sync:", e);
+      setSyncStatus("error");
+    }
+    return () => {
+      if (unsubRef.current) unsubRef.current();
+    };
+    // eslint-disable-next-line
+  }, [syncCfg?.apiKey, syncCfg?.projectId, syncCfg?.syncCode]);
+
+  // save locally always; push to cloud (debounced) unless the change just arrived from the cloud
   useEffect(() => {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ students, sessions, lang, rowHeight })
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ students, sessions, lang, rowHeight }));
     } catch (e) {
       console.warn("Could not save schedule:", e);
     }
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
+    if (dbRef.current && syncCfg?.syncCode) {
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = setTimeout(() => {
+        dbRef.current
+          .collection("schedules")
+          .doc(syncCfg.syncCode)
+          .set({ students, sessions, lang, rowHeight, updatedAt: Date.now() }, { merge: true })
+          .catch((e) => {
+            console.warn("Push failed:", e);
+            setSyncStatus("error");
+          });
+      }, 500);
+    }
   }, [students, sessions, lang, rowHeight]);
+
+  function connectSync() {
+    try {
+      const cfg = JSON.parse(syncConfigText.replace(/(\w+):/g, '"$1":').replace(/'/g, '"'));
+      const code = syncCodeInput.trim() || randomSyncCode();
+      setSyncCfg({ ...cfg, syncCode: code });
+      setSyncModalOpen(false);
+    } catch (e) {
+      alert(lang === "vi" ? "Cấu hình Firebase không hợp lệ." : "Invalid Firebase config.");
+    }
+  }
+
+  function disconnectSync() {
+    setSyncCfg(null);
+    setSyncModalOpen(false);
+  }
+
+  function copySyncLink() {
+    if (!syncCfg) return;
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(syncCfg))));
+    const link = window.location.origin + window.location.pathname + "#sync=" + b64;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(link)
+        .then(() => setCopyFeedback(lang === "vi" ? "Đã sao chép!" : "Copied!"))
+        .catch(() => setCopyFeedback(link));
+    } else {
+      setCopyFeedback(link);
+    }
+    setTimeout(() => setCopyFeedback(""), 4000);
+  }
 
   const nextColor = students.length % STUDENT_COLORS.length;
 
@@ -392,6 +570,41 @@ function App() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSyncConfigText("");
+              setSyncCodeInput(syncCfg?.syncCode || "");
+              setSyncModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{
+              background: "#25365C",
+              color:
+                syncStatus === "synced" ? "#63E6BE" : syncStatus === "error" ? "#FF8787" : "#F3F5F7",
+            }}
+            title={t[
+              syncStatus === "synced"
+                ? "syncSynced"
+                : syncStatus === "connecting"
+                ? "syncConnecting"
+                : syncStatus === "error"
+                ? "syncError"
+                : "syncOffline"
+            ]}
+          >
+            <Cloud size={16} />
+            <span className="hidden sm:inline">
+              {t[
+                syncStatus === "synced"
+                  ? "syncSynced"
+                  : syncStatus === "connecting"
+                  ? "syncConnecting"
+                  : syncStatus === "error"
+                  ? "syncError"
+                  : "syncOffline"
+              ]}
+            </span>
+          </button>
           <button
             onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
             className="px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
@@ -814,6 +1027,106 @@ function App() {
                 {t.save}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {syncModalOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.45)" }}
+          onClick={() => setSyncModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
+            style={{ background: "#FFFFFF" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-1.5">
+                <Cloud size={16} /> {t.syncTitle}
+              </h2>
+              <button onClick={() => setSyncModalOpen(false)} style={{ color: "#6B7A99" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs mb-3" style={{ color: "#6B7A99" }}>
+              {t.syncIntro}
+            </p>
+
+            {syncCfg ? (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncedAs}
+                  </label>
+                  <div
+                    className="mt-1.5 px-3 py-2 rounded-lg text-sm font-mono"
+                    style={{ background: "#F3F5F7" }}
+                  >
+                    {syncCfg.syncCode}
+                  </div>
+                </div>
+                <button
+                  onClick={copySyncLink}
+                  className="px-3 py-2 rounded-lg text-sm text-white font-medium"
+                  style={{ background: "#1B2A4A" }}
+                >
+                  {t.copyLink}
+                </button>
+                {copyFeedback && (
+                  <div className="text-xs break-all" style={{ color: "#6B7A99" }}>
+                    {copyFeedback}
+                  </div>
+                )}
+                <p className="text-xs" style={{ color: "#6B7A99" }}>
+                  {t.syncHelp}
+                </p>
+                <button
+                  onClick={disconnectSync}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: "#FFECEC", color: "#E03131" }}
+                >
+                  {t.disconnect}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncConfigLabel}
+                  </label>
+                  <textarea
+                    value={syncConfigText}
+                    onChange={(e) => setSyncConfigText(e.target.value)}
+                    placeholder={t.syncConfigPlaceholder}
+                    rows={6}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg text-xs font-mono border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncCodeLabel}
+                  </label>
+                  <input
+                    value={syncCodeInput}
+                    onChange={(e) => setSyncCodeInput(e.target.value)}
+                    placeholder={t.syncCodePlaceholder}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
+                <button
+                  onClick={connectSync}
+                  className="px-3 py-2 rounded-lg text-sm text-white font-medium"
+                  style={{ background: "#1B2A4A" }}
+                >
+                  {t.connect}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
