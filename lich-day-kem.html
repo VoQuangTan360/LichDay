@@ -6,8 +6,10 @@
 <title>Lịch dạy hàng tuần</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.7/babel.min.js" crossorigin></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
@@ -48,10 +50,161 @@ const Users = (p) => <Icon {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4
 const ZoomIn = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const ZoomOut = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
 const Clock3 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 12" /></Icon>;
+const Cloud = (p) => <Icon {...p}><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A5 5 0 0 0 6.5 19h11z" /></Icon>;
+const Wallet = (p) => <Icon {...p}><path d="M20 7V5a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h15v10a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V6" /><path d="M16 13h2" /></Icon>;
+const Check = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>;
+const ChevronLeft = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6" /></Icon>;
+const ChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6" /></Icon>;
+const Pencil = (p) => <Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" /></Icon>;
 
-// ---------- Constants ----------
-const DAY_LABELS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
-const DAY_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+// ---------- Translations ----------
+const TRANSLATIONS = {
+  vi: {
+    langLabel: "EN",
+    title: "Lịch dạy hàng tuần",
+    subtitle: "Kéo để dời · nhấp đúp để sửa · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm",
+    shrink: "Thu nhỏ",
+    zoomIn: "Phóng to",
+    students: "Học sinh",
+    allStudents: "Tất cả học sinh",
+    deleteConfirm: "Xóa?",
+    deleteStudentTitle: "Xóa học sinh",
+    studentNamePlaceholder: "Tên học sinh",
+    add: "Thêm",
+    cancel: "Hủy",
+    addStudent: "Thêm học sinh",
+    hourlyRate: "Đơn giá/giờ",
+    payroll: "Tính công",
+    payrollTitle: "Tổng hợp công theo tháng",
+    completed: "Đã dạy",
+    planned: "Chưa dạy",
+    cancelled: "Đã nghỉ",
+    markTaught: "Đánh dấu đã dạy",
+    confirmAttendance: "Xác nhận buổi dạy",
+    confirmAttendanceText: "Tôi xác nhận buổi học này đã được dạy.",
+    undoAttendanceText: "Tôi xác nhận muốn bỏ trạng thái đã dạy của buổi học này.",
+    confirmAction: "Xác nhận",
+    invalidTime: "Buổi học phải kết thúc trước hoặc đúng 23:00.",
+    closeWeek: "Chốt tuần",
+    weekClosed: "Đã chốt tuần",
+    closeWeekTitle: "Xác nhận chốt công tuần",
+    closeWeekText: "Tôi xác nhận số buổi và tiền công của tuần này là chính xác.",
+    closeWeekHelp: "Sau khi chốt, tuần này sẽ bị khóa và lịch tự chuyển sang tuần kế tiếp.",
+    taughtAmount: "Tiền công đã dạy",
+    editStudent: "Sửa thông tin học viên",
+    studentColor: "Màu nhận diện",
+    sessionsCount: "Số buổi",
+    hoursCount: "Số giờ",
+    totalAmount: "Thành tiền",
+    noLessons: "Không có buổi học trong tháng này.",
+    addSession: "Thêm buổi học",
+    editSession: "Sửa buổi học",
+    day: "Ngày",
+    startTime: "Giờ bắt đầu",
+    duration: "Thời lượng",
+    note: "Ghi chú (tùy chọn)",
+    notePlaceholder: "Ví dụ: Toán, Tiếng Anh…",
+    delete: "Xóa",
+    save: "Lưu",
+    syncOffline: "Chưa đồng bộ",
+    syncConnecting: "Đang kết nối…",
+    syncSynced: "Đã đồng bộ",
+    syncError: "Lỗi đồng bộ",
+    syncTitle: "Đồng bộ nhiều thiết bị",
+    syncIntro: "Dán cấu hình Firebase (Firestore) của bạn để lịch dạy tự động đồng bộ giữa các thiết bị.",
+    syncConfigLabel: "Cấu hình Firebase",
+    syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
+    syncCodeLabel: "Mã đồng bộ (để trống sẽ tự tạo)",
+    syncCodePlaceholder: "ví dụ: lop-hoc-cua-toi",
+    connect: "Kết nối",
+    disconnect: "Ngắt kết nối",
+    copyLink: "Sao chép liên kết đồng bộ",
+    syncedAs: "Mã đồng bộ hiện tại",
+    syncHelp: "Mở liên kết này trên thiết bị khác để xem cùng một lịch.",
+    dayLabels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
+    dayShort: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    durations: [
+      { m: 30, label: "30 phút" },
+      { m: 45, label: "45 phút" },
+      { m: 60, label: "1 giờ" },
+      { m: 90, label: "1.5 giờ" },
+      { m: 120, label: "2 giờ" },
+    ],
+  },
+  en: {
+    langLabel: "VI",
+    title: "Weekly Teaching Schedule",
+    subtitle: "Drag to move · double-click to edit · drag the bottom edge to resize · click an empty slot to add",
+    shrink: "Zoom out",
+    zoomIn: "Zoom in",
+    students: "Students",
+    allStudents: "All students",
+    deleteConfirm: "Delete?",
+    deleteStudentTitle: "Delete student",
+    studentNamePlaceholder: "Student name",
+    add: "Add",
+    cancel: "Cancel",
+    addStudent: "Add student",
+    hourlyRate: "Hourly rate",
+    payroll: "Payroll",
+    payrollTitle: "Monthly payroll summary",
+    completed: "Completed",
+    planned: "Planned",
+    cancelled: "Cancelled",
+    markTaught: "Mark as taught",
+    confirmAttendance: "Confirm attendance",
+    confirmAttendanceText: "I confirm that this lesson was taught.",
+    undoAttendanceText: "I confirm that I want to remove the taught status from this lesson.",
+    confirmAction: "Confirm",
+    invalidTime: "The lesson must end by 23:00.",
+    closeWeek: "Close week",
+    weekClosed: "Week closed",
+    closeWeekTitle: "Confirm weekly closing",
+    closeWeekText: "I confirm that this week's lessons and payroll are correct.",
+    closeWeekHelp: "After closing, this week will be locked and the schedule will move to the next week.",
+    taughtAmount: "Taught amount",
+    editStudent: "Edit student information",
+    studentColor: "Display color",
+    sessionsCount: "Sessions",
+    hoursCount: "Hours",
+    totalAmount: "Amount",
+    noLessons: "No lessons in this month.",
+    addSession: "Add session",
+    editSession: "Edit session",
+    day: "Day",
+    startTime: "Start time",
+    duration: "Duration",
+    note: "Note (optional)",
+    notePlaceholder: "e.g. Math, English…",
+    delete: "Delete",
+    save: "Save",
+    syncOffline: "Not synced",
+    syncConnecting: "Connecting…",
+    syncSynced: "Synced",
+    syncError: "Sync error",
+    syncTitle: "Sync across devices",
+    syncIntro: "Paste your own Firebase (Firestore) config to sync this schedule across devices.",
+    syncConfigLabel: "Firebase config",
+    syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
+    syncCodeLabel: "Sync code (leave blank to generate one)",
+    syncCodePlaceholder: "e.g. my-tutoring-schedule",
+    connect: "Connect",
+    disconnect: "Disconnect",
+    copyLink: "Copy sync link",
+    syncedAs: "Current sync code",
+    syncHelp: "Open this link on another device to see the same schedule.",
+    dayLabels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    dayShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    durations: [
+      { m: 30, label: "30 min" },
+      { m: 45, label: "45 min" },
+      { m: 60, label: "1 hour" },
+      { m: 90, label: "1.5 hours" },
+      { m: 120, label: "2 hours" },
+    ],
+  },
+};
+
 const STUDENT_COLORS = [
   { bg: "#4C6EF5", soft: "#EAF0FF" },
   { bg: "#12B886", soft: "#E4FBF3" },
@@ -61,13 +214,6 @@ const STUDENT_COLORS = [
   { bg: "#FA5252", soft: "#FFECEC" },
   { bg: "#0F8B8D", soft: "#E3F6F6" },
   { bg: "#B5651D", soft: "#F8EEE3" },
-];
-const DURATIONS = [
-  { m: 30, label: "30 phút" },
-  { m: 45, label: "45 phút" },
-  { m: 60, label: "1 giờ" },
-  { m: 90, label: "1.5 giờ" },
-  { m: 120, label: "2 giờ" },
 ];
 const START_HOUR = 7;
 const END_HOUR = 23;
@@ -87,11 +233,37 @@ function fmtTime(mins) {
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function currentMonthKey() {
+  return dateKey(new Date()).slice(0, 7);
+}
+function startOfWeek(date) {
+  const result = new Date(date);
+  const dayIndex = (result.getDay() + 6) % 7;
+  result.setHours(0, 0, 0, 0);
+  result.setDate(result.getDate() - dayIndex);
+  return result;
+}
+function weekKeyForDateString(value) {
+  return dateKey(startOfWeek(new Date(`${value}T00:00:00`)));
+}
+function formatMoney(value, lang = "vi") {
+  return new Intl.NumberFormat(lang === "vi" ? "vi-VN" : "en-US", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(Math.round(value || 0));
+}
 
 const seedStudents = [
-  { id: "s1", name: "Học sinh A", color: 0 },
-  { id: "s2", name: "Học sinh B", color: 1 },
-  { id: "s3", name: "Học sinh C", color: 2 },
+  { id: "s1", name: "Học sinh A", color: 0, hourlyRate: 200000 },
+  { id: "s2", name: "Học sinh B", color: 1, hourlyRate: 200000 },
+  { id: "s3", name: "Học sinh C", color: 2, hourlyRate: 200000 },
 ];
 const seedSessions = [
   { id: uid(), studentId: "s1", day: 0, start: 17 * 60, duration: 90, note: "Toán lớp 9" },
@@ -102,34 +274,279 @@ const seedSessions = [
   { id: uid(), studentId: "s3", day: 5, start: 9 * 60, duration: 120, note: "Ôn thi" },
 ];
 
+const STORAGE_KEY = "tutor_schedule_v1";
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn("Could not read saved schedule:", e);
+  }
+  return null;
+}
+const savedData = loadSaved();
+
+function lessonRecordFromTemplate(key, session, student, status) {
+  const lessonDate = key.split("|")[0];
+  const hourlyRate = Number(student?.hourlyRate) || 0;
+  return {
+    key,
+    date: lessonDate,
+    sessionId: session.id,
+    studentId: session.studentId,
+    studentName: student?.name || "?",
+    start: session.start,
+    duration: session.duration,
+    note: session.note || "",
+    hourlyRate,
+    amount: status === "completed" ? (session.duration / 60) * hourlyRate : 0,
+    status,
+  };
+}
+
+function migrateLegacyAttendance(attendance, sessions, students) {
+  const records = {};
+  Object.entries(attendance || {}).forEach(([key, status]) => {
+    if (status === "planned") return;
+    const sessionId = key.split("|")[1];
+    const session = (sessions || []).find((item) => item.id === sessionId);
+    if (!session) return;
+    const student = (students || []).find((item) => item.id === session.studentId);
+    records[key] = lessonRecordFromTemplate(key, session, student, status);
+  });
+  return records;
+}
+
+// ---------- Cloud sync (optional, via the user's own Firebase project) ----------
+const SYNC_CFG_KEY = "tutor_schedule_sync_cfg";
+function loadSyncCfg() {
+  try {
+    const raw = localStorage.getItem(SYNC_CFG_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+function readSyncCfgFromHash() {
+  const h = window.location.hash;
+  if (!h.startsWith("#sync=")) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(h.slice(6))));
+    const parsed = JSON.parse(json);
+    if (parsed && parsed.apiKey && parsed.projectId && parsed.syncCode) return parsed;
+  } catch (e) {}
+  return null;
+}
+function randomSyncCode() {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
+}
+
 function App() {
-  const [students, setStudents] = useState(seedStudents);
-  const [sessions, setSessions] = useState(seedSessions);
+  const [lang, setLang] = useState(savedData?.lang || "en");
+  const t = TRANSLATIONS[lang];
+  const [students, setStudents] = useState(savedData?.students || seedStudents);
+  const [sessions, setSessions] = useState(() =>
+    (savedData?.sessions || seedSessions).map((session) => ({ effectiveFrom: "1970-01-01", ...session }))
+  );
   const [filterId, setFilterId] = useState(null);
-  const [rowHeight, setRowHeight] = useState(56);
+  const [rowHeight, setRowHeight] = useState(savedData?.rowHeight || 56);
   const [modal, setModal] = useState(null);
   const [addingStudent, setAddingStudent] = useState(false);
   const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentRate, setNewStudentRate] = useState(200000);
+  const [studentModal, setStudentModal] = useState(null);
   const [confirmDeleteStudent, setConfirmDeleteStudent] = useState(null);
   const [now, setNow] = useState(new Date());
+  const [viewWeekStart, setViewWeekStart] = useState(() => startOfWeek(new Date()));
+  const [weeklyClosings, setWeeklyClosings] = useState(savedData?.weeklyClosings || {});
+  const [closeWeekModal, setCloseWeekModal] = useState(null);
+  const [attendance, setAttendance] = useState(savedData?.attendance || {});
+  const [lessonRecords, setLessonRecords] = useState(() =>
+    savedData?.lessonRecords ||
+    migrateLegacyAttendance(savedData?.attendance, savedData?.sessions || seedSessions, savedData?.students || seedStudents)
+  );
+  const [payrollOpen, setPayrollOpen] = useState(false);
+  const [payrollMonth, setPayrollMonth] = useState(currentMonthKey());
+  const [attendanceConfirm, setAttendanceConfirm] = useState(null);
+
+  const [syncCfg, setSyncCfg] = useState(() => readSyncCfgFromHash() || loadSyncCfg());
+  const [syncStatus, setSyncStatus] = useState("offline"); // offline | connecting | synced | error
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncConfigText, setSyncConfigText] = useState("");
+  const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState("");
 
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
+  const suppressSessionEditRef = useRef(false);
+  const dbRef = useRef(null);
+  const unsubRef = useRef(null);
+  const applyingRemoteRef = useRef(false);
+  const pushTimerRef = useRef(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(t);
+    const t2 = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t2);
   }, []);
+
+  // persist config to localStorage + clean the URL hash once read
+  useEffect(() => {
+    if (readSyncCfgFromHash() && window.history?.replaceState) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    if (syncCfg) {
+      try {
+        localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(syncCfg));
+      } catch (e) {}
+    } else {
+      try {
+        localStorage.removeItem(SYNC_CFG_KEY);
+      } catch (e) {}
+    }
+    // eslint-disable-next-line
+  }, [syncCfg]);
+
+  // connect to Firestore whenever syncCfg changes
+  useEffect(() => {
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
+    }
+    if (!syncCfg || !syncCfg.apiKey || !syncCfg.projectId || !syncCfg.syncCode) {
+      dbRef.current = null;
+      setSyncStatus("offline");
+      return;
+    }
+    setSyncStatus("connecting");
+    try {
+      const appName = "tutor-schedule";
+      const existing = firebase.apps.find((a) => a.name === appName);
+      const fbApp = existing || firebase.initializeApp(syncCfg, appName);
+      const db = firebase.firestore(fbApp);
+      dbRef.current = db;
+      const docRef = db.collection("schedules").doc(syncCfg.syncCode);
+      unsubRef.current = docRef.onSnapshot(
+        (snap) => {
+          setSyncStatus("synced");
+          if (snap.exists) {
+            const data = snap.data();
+            applyingRemoteRef.current = true;
+            if (data.students) setStudents(data.students);
+            if (data.sessions) setSessions(data.sessions.map((session) => ({ effectiveFrom: "1970-01-01", ...session })));
+            if (data.attendance) setAttendance(data.attendance);
+            if (data.lessonRecords) {
+              setLessonRecords(data.lessonRecords);
+            } else if (data.attendance) {
+              setLessonRecords(migrateLegacyAttendance(data.attendance, data.sessions || sessions, data.students || students));
+            }
+            if (data.weeklyClosings) setWeeklyClosings(data.weeklyClosings);
+            if (data.lang) setLang(data.lang);
+            if (data.rowHeight) setRowHeight(data.rowHeight);
+          } else {
+            docRef.set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() });
+          }
+        },
+        (err) => {
+          console.warn("Sync error:", err);
+          setSyncStatus("error");
+        }
+      );
+    } catch (e) {
+      console.warn("Could not connect sync:", e);
+      setSyncStatus("error");
+    }
+    return () => {
+      if (unsubRef.current) unsubRef.current();
+    };
+    // eslint-disable-next-line
+  }, [syncCfg?.apiKey, syncCfg?.projectId, syncCfg?.syncCode]);
+
+  // save locally always; push to cloud (debounced) unless the change just arrived from the cloud
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight }));
+    } catch (e) {
+      console.warn("Could not save schedule:", e);
+    }
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
+    if (dbRef.current && syncCfg?.syncCode) {
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = setTimeout(() => {
+        dbRef.current
+          .collection("schedules")
+          .doc(syncCfg.syncCode)
+          .set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() }, { merge: true })
+          .catch((e) => {
+            console.warn("Push failed:", e);
+            setSyncStatus("error");
+          });
+      }, 500);
+    }
+  }, [students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight]);
+
+  function connectSync() {
+    try {
+      const cfg = JSON.parse(
+        syncConfigText
+          .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+          .replace(/'/g, '"')
+      );
+      const code = syncCodeInput.trim() || randomSyncCode();
+      setSyncCfg({ ...cfg, syncCode: code });
+      setSyncModalOpen(false);
+    } catch (e) {
+      alert(lang === "vi" ? "Cấu hình Firebase không hợp lệ." : "Invalid Firebase config.");
+    }
+  }
+
+  function disconnectSync() {
+    setSyncCfg(null);
+    setSyncModalOpen(false);
+  }
+
+  function copySyncLink() {
+    if (!syncCfg) return;
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(syncCfg))));
+    const link = window.location.origin + window.location.pathname + "#sync=" + b64;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(link)
+        .then(() => setCopyFeedback(lang === "vi" ? "Đã sao chép!" : "Copied!"))
+        .catch(() => setCopyFeedback(link));
+    } else {
+      setCopyFeedback(link);
+    }
+    setTimeout(() => setCopyFeedback(""), 4000);
+  }
 
   const nextColor = students.length % STUDENT_COLORS.length;
 
   function addStudent() {
     const name = newStudentName.trim();
     if (!name) return;
-    setStudents((prev) => [...prev, { id: uid(), name, color: prev.length % STUDENT_COLORS.length }]);
+    setStudents((prev) => [
+      ...prev,
+      { id: uid(), name, color: prev.length % STUDENT_COLORS.length, hourlyRate: Math.max(0, Number(newStudentRate) || 0) },
+    ]);
     setNewStudentName("");
+    setNewStudentRate(200000);
     setAddingStudent(false);
+  }
+
+  function saveStudentModal() {
+    const name = studentModal.name.trim();
+    if (!name) return;
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === studentModal.id
+          ? { ...s, name, hourlyRate: Math.max(0, Number(studentModal.hourlyRate) || 0), color: studentModal.color }
+          : s
+      )
+    );
+    setStudentModal(null);
   }
 
   function removeStudent(id) {
@@ -159,6 +576,7 @@ function App() {
   }
 
   function saveModal() {
+    if (modal.start + modal.duration > END_MIN) return;
     if (modal.mode === "add") {
       setSessions((prev) => [
         ...prev,
@@ -169,6 +587,7 @@ function App() {
           start: modal.start,
           duration: modal.duration,
           note: modal.note,
+          effectiveFrom: dateKey(new Date()),
         },
       ]);
     } else {
@@ -217,6 +636,7 @@ function App() {
       const dy = e.clientY - ds.startY;
       if (!ds.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
       ds.moved = true;
+      suppressSessionEditRef.current = true;
 
       const deltaMinutes = (dy / rowHeight) * 60;
       let newStart = Math.round((ds.origStart + deltaMinutes) / SNAP) * SNAP;
@@ -236,9 +656,15 @@ function App() {
   );
 
   const onDragUp = useCallback(() => {
+    const wasMoved = Boolean(dragState.current?.moved);
     window.removeEventListener("mousemove", onDragMove);
     window.removeEventListener("mouseup", onDragUp);
     dragState.current = null;
+    if (wasMoved) {
+      window.setTimeout(() => {
+        suppressSessionEditRef.current = false;
+      }, 500);
+    }
   }, [onDragMove]);
 
   const resizeState = useRef(null);
@@ -286,11 +712,141 @@ function App() {
   const jsDay = now.getDay();
   const todayIndex = (jsDay + 6) % 7;
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const mondayOfCurrentWeek = startOfWeek(now);
+  const viewWeekKey = dateKey(viewWeekStart);
+  const isCurrentWeek = viewWeekKey === dateKey(mondayOfCurrentWeek);
+  const viewedWeekClosing = weeklyClosings[viewWeekKey];
+  const viewWeekDates = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(viewWeekStart);
+    date.setDate(viewWeekStart.getDate() + index);
+    return date;
+  });
+  function currentWeekOccurrenceKey(session) {
+    const lessonDate = new Date(viewWeekStart);
+    lessonDate.setDate(viewWeekStart.getDate() + session.day);
+    return `${dateKey(lessonDate)}|${session.id}`;
+  }
 
   const studentById = (id) => students.find((s) => s.id === id);
   const colorFor = (student) => STUDENT_COLORS[(student?.color ?? 0) % STUDENT_COLORS.length];
 
   const visibleSessions = sessions.filter((s) => !filterId || s.studentId === filterId);
+
+  function updateLessonStatus(key, session, student, status) {
+    if (weeklyClosings[weekKeyForDateString(key.slice(0, 10))]) return;
+    setAttendance((prev) => ({ ...prev, [key]: status }));
+    setLessonRecords((prev) => {
+      if (status === "planned") {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: lessonRecordFromTemplate(key, session, student, status) };
+    });
+  }
+
+  const viewWeekEnd = dateKey(viewWeekDates[6]);
+  const viewWeekCompletedRecords = Object.values(lessonRecords).filter(
+    (record) => record.date >= viewWeekKey && record.date <= viewWeekEnd && record.status === "completed"
+  );
+  const viewWeekSummary = {
+    sessions: viewWeekCompletedRecords.length,
+    minutes: viewWeekCompletedRecords.reduce((sum, record) => sum + record.duration, 0),
+    amount: viewWeekCompletedRecords.reduce((sum, record) => sum + record.amount, 0),
+  };
+
+  function finishCloseWeek() {
+    setWeeklyClosings((prev) => ({
+      ...prev,
+      [viewWeekKey]: {
+        weekStart: viewWeekKey,
+        weekEnd: viewWeekEnd,
+        sessions: viewWeekSummary.sessions,
+        minutes: viewWeekSummary.minutes,
+        amount: viewWeekSummary.amount,
+        closedAt: Date.now(),
+      },
+    }));
+    setCloseWeekModal(null);
+    setViewWeekStart((current) => {
+      const next = new Date(current);
+      next.setDate(current.getDate() + 7);
+      return next;
+    });
+  }
+
+  const [payrollYear, payrollMonthNumber] = payrollMonth.split("-").map(Number);
+  const payrollOccurrences = [];
+  const payrollOccurrenceKeys = new Set();
+  function occurrenceFromRecord(record) {
+    const student = students.find((item) => item.id === record.studentId) || {
+      id: record.studentId,
+      name: record.studentName,
+      hourlyRate: record.hourlyRate,
+    };
+    return {
+      key: record.key,
+      date: new Date(`${record.date}T00:00:00`),
+      session: {
+        id: record.sessionId,
+        studentId: record.studentId,
+        start: record.start,
+        duration: record.duration,
+        note: record.note,
+      },
+      student: { ...student, name: record.studentName, hourlyRate: record.hourlyRate },
+      status: record.status,
+      amount: record.amount,
+    };
+  }
+  if (payrollYear && payrollMonthNumber) {
+    const daysInMonth = new Date(payrollYear, payrollMonthNumber, 0).getDate();
+    for (let dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth += 1) {
+      const date = new Date(payrollYear, payrollMonthNumber - 1, dayOfMonth);
+      const weekday = (date.getDay() + 6) % 7;
+      const lessonDate = dateKey(date);
+      sessions
+        .filter((session) => session.day === weekday && lessonDate >= (session.effectiveFrom || "1970-01-01"))
+        .forEach((session) => {
+          const key = `${lessonDate}|${session.id}`;
+          payrollOccurrenceKeys.add(key);
+          const storedRecord = lessonRecords[key];
+          if (storedRecord) {
+            payrollOccurrences.push(occurrenceFromRecord(storedRecord));
+            return;
+          }
+          const student = studentById(session.studentId);
+          const status = attendance[key] || "planned";
+          const amount = status === "completed" ? (session.duration / 60) * (Number(student?.hourlyRate) || 0) : 0;
+          payrollOccurrences.push({ key, date, session, student, status, amount });
+        });
+    }
+    Object.values(lessonRecords).forEach((record) => {
+      if (record.date.slice(0, 7) === payrollMonth && !payrollOccurrenceKeys.has(record.key)) {
+        payrollOccurrences.push(occurrenceFromRecord(record));
+        payrollOccurrenceKeys.add(record.key);
+      }
+    });
+  }
+  payrollOccurrences.sort((a, b) => a.date - b.date || a.session.start - b.session.start);
+  const payrollStudents = new Map(students.map((student) => [student.id, student]));
+  Object.values(lessonRecords).forEach((record) => {
+    if (!payrollStudents.has(record.studentId)) {
+      payrollStudents.set(record.studentId, { id: record.studentId, name: record.studentName, hourlyRate: record.hourlyRate });
+    }
+  });
+  const payrollRows = Array.from(payrollStudents.values()).map((student) => {
+    const rows = payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed");
+    const rates = [...new Set(rows.map((item) => Number(item.student?.hourlyRate) || 0))];
+    return {
+      student,
+      sessions: rows.length,
+      minutes: rows.reduce((sum, item) => sum + item.session.duration, 0),
+      amount: rows.reduce((sum, item) => sum + item.amount, 0),
+      hourlyRate: rates.length === 1 ? rates[0] : null,
+    };
+  }).filter((row) => row.sessions > 0);
+  const payrollTotal = payrollRows.reduce((sum, row) => sum + row.amount, 0);
 
   return (
     <div
@@ -300,18 +856,95 @@ function App() {
       <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "#1B2A4A" }}>
         <div>
           <h1 className="text-xl font-semibold tracking-tight" style={{ color: "#F3F5F7" }}>
-            Lịch dạy hàng tuần
+            {t.title}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "#8FA0C2" }}>
-            Kéo để dời buổi học · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm buổi mới
+            {t.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "#25365C", color: "#F3F5F7" }}>
+            <button
+              onClick={() => setViewWeekStart((current) => { const previous = new Date(current); previous.setDate(current.getDate() - 7); return previous; })}
+              className="p-2 hover:opacity-70"
+              title="Previous week"
+            ><ChevronLeft size={16} /></button>
+            <button
+              onClick={() => setViewWeekStart(startOfWeek(new Date()))}
+              className="px-2 text-xs font-medium hover:opacity-70 whitespace-nowrap"
+            >{viewWeekKey.slice(5)} → {viewWeekEnd.slice(5)}</button>
+            <button
+              onClick={() => setViewWeekStart((current) => { const next = new Date(current); next.setDate(current.getDate() + 7); return next; })}
+              className="p-2 hover:opacity-70"
+              title="Next week"
+            ><ChevronRight size={16} /></button>
+          </div>
+          <button
+            onClick={() => !viewedWeekClosing && setCloseWeekModal({ confirmed: false })}
+            disabled={Boolean(viewedWeekClosing)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
+            style={{ background: viewedWeekClosing ? "#495A78" : "#F59F00", color: "#FFFFFF", cursor: viewedWeekClosing ? "not-allowed" : "pointer" }}
+          >
+            <Check size={16} />
+            <span className="hidden sm:inline">{viewedWeekClosing ? t.weekClosed : t.closeWeek}</span>
+          </button>
+          <button
+            onClick={() => setPayrollOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{ background: "#12B886", color: "#FFFFFF" }}
+            title={t.payrollTitle}
+          >
+            <Wallet size={16} />
+            <span className="hidden sm:inline">{t.payroll}</span>
+          </button>
+          <button
+            onClick={() => {
+              setSyncConfigText("");
+              setSyncCodeInput(syncCfg?.syncCode || "");
+              setSyncModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{
+              background: "#25365C",
+              color:
+                syncStatus === "synced" ? "#63E6BE" : syncStatus === "error" ? "#FF8787" : "#F3F5F7",
+            }}
+            title={t[
+              syncStatus === "synced"
+                ? "syncSynced"
+                : syncStatus === "connecting"
+                ? "syncConnecting"
+                : syncStatus === "error"
+                ? "syncError"
+                : "syncOffline"
+            ]}
+          >
+            <Cloud size={16} />
+            <span className="hidden sm:inline">
+              {t[
+                syncStatus === "synced"
+                  ? "syncSynced"
+                  : syncStatus === "connecting"
+                  ? "syncConnecting"
+                  : syncStatus === "error"
+                  ? "syncError"
+                  : "syncOffline"
+              ]}
+            </span>
+          </button>
+          <button
+            onClick={() => setLang((l) => (l === "vi" ? "en" : "vi"))}
+            className="px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{ background: "#25365C", color: "#F3F5F7" }}
+            title="Switch language"
+          >
+            {t.langLabel}
+          </button>
           <button
             onClick={() => setRowHeight((h) => clamp(h - 12, 32, 100))}
             className="p-2 rounded-lg hover:opacity-80 transition"
             style={{ background: "#25365C", color: "#F3F5F7" }}
-            title="Thu nhỏ"
+            title={t.shrink}
           >
             <ZoomOut size={16} />
           </button>
@@ -319,7 +952,7 @@ function App() {
             onClick={() => setRowHeight((h) => clamp(h + 12, 32, 100))}
             className="p-2 rounded-lg hover:opacity-80 transition"
             style={{ background: "#25365C", color: "#F3F5F7" }}
-            title="Phóng to"
+            title={t.zoomIn}
           >
             <ZoomIn size={16} />
           </button>
@@ -331,7 +964,7 @@ function App() {
           <div className="p-4">
             <div className="flex items-center gap-2 mb-3" style={{ color: "#6B7A99" }}>
               <Users size={15} />
-              <span className="text-xs font-semibold uppercase tracking-wide">Học sinh</span>
+              <span className="text-xs font-semibold uppercase tracking-wide">{t.students}</span>
             </div>
 
             <button
@@ -342,7 +975,7 @@ function App() {
                 color: filterId === null ? "#FFFFFF" : "#16213E",
               }}
             >
-              Tất cả học sinh
+              {t.allStudents}
             </button>
 
             <div className="flex flex-col gap-1 mt-1">
@@ -359,6 +992,18 @@ function App() {
                   >
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.bg }} />
                     <span className="flex-1 truncate">{s.name}</span>
+                    <button
+                      className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded hover:opacity-80"
+                      style={{ background: "#F3F5F7", color: "#6B7A99" }}
+                      title={t.editStudent}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStudentModal({ ...s, hourlyRate: s.hourlyRate || 0 });
+                      }}
+                    >
+                      {Number(s.hourlyRate || 0).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
+                      <Pencil size={10} />
+                    </button>
                     <span className="text-xs" style={{ color: "#6B7A99" }}>
                       {count}
                     </span>
@@ -371,7 +1016,7 @@ function App() {
                           removeStudent(s.id);
                         }}
                       >
-                        Xóa?
+                        {t.deleteConfirm}
                       </button>
                     ) : (
                       <button
@@ -382,7 +1027,7 @@ function App() {
                           setConfirmDeleteStudent(s.id);
                           setTimeout(() => setConfirmDeleteStudent(null), 2500);
                         }}
-                        title="Xóa học sinh"
+                        title={t.deleteStudentTitle}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -402,24 +1047,36 @@ function App() {
                     if (e.key === "Enter") addStudent();
                     if (e.key === "Escape") setAddingStudent(false);
                   }}
-                  placeholder="Tên học sinh"
+                  placeholder={t.studentNamePlaceholder}
                   className="w-full px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.hourlyRate}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    value={newStudentRate}
+                    onChange={(e) => setNewStudentRate(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={addStudent}
                     className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white"
                     style={{ background: STUDENT_COLORS[nextColor].bg }}
                   >
-                    Thêm
+                    {t.add}
                   </button>
                   <button
                     onClick={() => setAddingStudent(false)}
                     className="px-3 py-1.5 rounded-lg text-sm"
                     style={{ background: "#F3F5F7" }}
                   >
-                    Hủy
+                    {t.cancel}
                   </button>
                 </div>
               </div>
@@ -429,7 +1086,7 @@ function App() {
                 className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-dashed transition hover:opacity-80"
                 style={{ borderColor: "#B7C2D0", color: "#6B7A99" }}
               >
-                <Plus size={14} /> Thêm học sinh
+                <Plus size={14} /> {t.addStudent}
               </button>
             )}
           </div>
@@ -439,18 +1096,19 @@ function App() {
           <div className="flex border-b" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
             <div className="w-14 shrink-0" />
             <div className="flex-1 grid grid-cols-7">
-              {DAY_LABELS.map((d, i) => (
+              {t.dayLabels.map((d, i) => (
                 <div
                   key={d}
                   className="py-2.5 text-center text-sm font-medium border-l"
                   style={{
                     borderColor: "#DDE3E8",
-                    color: i === todayIndex ? "#1B2A4A" : "#6B7A99",
-                    background: i === todayIndex ? "#EAF0FF" : "transparent",
+                    color: isCurrentWeek && i === todayIndex ? "#1B2A4A" : "#6B7A99",
+                    background: isCurrentWeek && i === todayIndex ? "#EAF0FF" : "transparent",
                   }}
                 >
                   <span className="hidden sm:inline">{d}</span>
-                  <span className="sm:hidden">{DAY_SHORT[i]}</span>
+                  <span className="sm:hidden">{t.dayShort[i]}</span>
+                  <div className="text-[10px] font-mono mt-0.5 opacity-70">{String(viewWeekDates[i].getDate()).padStart(2, "0")}/{String(viewWeekDates[i].getMonth() + 1).padStart(2, "0")}</div>
                 </div>
               ))}
             </div>
@@ -477,19 +1135,17 @@ function App() {
                     className="relative border-l cursor-crosshair"
                     style={{
                       borderColor: "#DDE3E8",
-                      backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${
-                        rowHeight - 1
-                      }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`,
-                      background:
-                        dayIndex === todayIndex
-                          ? `#FBFCFE repeating-linear-gradient(to bottom, transparent 0, transparent ${
-                              rowHeight - 1
-                            }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`
-                          : undefined,
+                      background: `${isCurrentWeek && dayIndex === todayIndex ? "#FBFCFE " : "#FFFFFF "}repeating-linear-gradient(
+                        to bottom,
+                        transparent 0,
+                        transparent ${rowHeight - 1}px,
+                        #EBEEF1 ${rowHeight - 1}px,
+                        #EBEEF1 ${rowHeight}px
+                      )`,
                     }}
                     onClick={(e) => onColumnClick(e, dayIndex)}
                   >
-                    {dayIndex === todayIndex && nowMinutes >= START_MIN && nowMinutes <= END_MIN && (
+                    {isCurrentWeek && dayIndex === todayIndex && nowMinutes >= START_MIN && nowMinutes <= END_MIN && (
                       <div
                         className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
                         style={{ top: ((nowMinutes - START_MIN) / 60) * rowHeight }}
@@ -507,15 +1163,18 @@ function App() {
                         const top = ((s.start - START_MIN) / 60) * rowHeight;
                         const height = Math.max((s.duration / 60) * rowHeight, 18);
                         const compact = height < 34;
+                        const occurrenceKey = currentWeekOccurrenceKey(s);
+                        const taught = (lessonRecords[occurrenceKey]?.status || attendance[occurrenceKey]) === "completed";
                         return (
                           <div
                             key={s.id}
                             onMouseDown={(e) => onSessionMouseDown(e, s)}
-                            onClick={(e) => {
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => {
                               e.stopPropagation();
-                              if (!dragState.current || !dragState.current.moved) openEditModal(s);
+                              if (!suppressSessionEditRef.current) openEditModal(s);
                             }}
-                            className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden select-none shadow-sm"
+                            className="absolute left-0.5 right-0.5 rounded-md pl-1.5 pr-7 py-1 overflow-hidden select-none shadow-sm"
                             style={{
                               top,
                               height,
@@ -525,6 +1184,34 @@ function App() {
                               zIndex: 5,
                             }}
                           >
+                            <button
+                              type="button"
+                              disabled={Boolean(viewedWeekClosing)}
+                              className="absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center cursor-pointer"
+                              style={{ background: taught ? "#FFFFFF" : "rgba(255,255,255,0.88)", opacity: viewedWeekClosing ? 0.55 : 1, cursor: viewedWeekClosing ? "not-allowed" : "pointer" }}
+                              title={t.markTaught}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (viewedWeekClosing) return;
+                                setAttendanceConfirm({
+                                  key: occurrenceKey,
+                                  session: s,
+                                  student,
+                                  taught,
+                                  confirmed: false,
+                                });
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taught}
+                                readOnly
+                                tabIndex="-1"
+                                className="pointer-events-none w-3.5 h-3.5 accent-emerald-600"
+                                aria-label={t.markTaught}
+                              />
+                            </button>
                             <div className="text-[11px] font-semibold leading-tight truncate">
                               {student?.name || "?"}
                             </div>
@@ -564,7 +1251,7 @@ function App() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold">
-                {modal.mode === "add" ? "Thêm buổi học" : "Sửa buổi học"}
+                {modal.mode === "add" ? t.addSession : t.editSession}
               </h2>
               <button onClick={() => setModal(null)} style={{ color: "#6B7A99" }}>
                 <X size={18} />
@@ -574,7 +1261,7 @@ function App() {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Học sinh
+                  {t.students}
                 </label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {students.map((s) => {
@@ -600,10 +1287,10 @@ function App() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Ngày
+                  {t.day}
                 </label>
                 <div className="grid grid-cols-7 gap-1 mt-1.5">
-                  {DAY_SHORT.map((d, i) => (
+                  {t.dayShort.map((d, i) => (
                     <button
                       key={d}
                       onClick={() => setModal({ ...modal, day: i })}
@@ -622,7 +1309,7 @@ function App() {
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                    Giờ bắt đầu
+                    {t.startTime}
                   </label>
                   <div className="flex gap-1 mt-1.5">
                     <select
@@ -658,7 +1345,7 @@ function App() {
 
                 <div className="flex-1">
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                    Thời lượng
+                    {t.duration}
                   </label>
                   <select
                     className="w-full mt-1.5 px-2 py-1.5 rounded-lg text-sm border"
@@ -666,7 +1353,7 @@ function App() {
                     value={modal.duration}
                     onChange={(e) => setModal({ ...modal, duration: Number(e.target.value) })}
                   >
-                    {DURATIONS.map((d) => (
+                    {t.durations.map((d) => (
                       <option key={d.m} value={d.m}>
                         {d.label}
                       </option>
@@ -677,12 +1364,12 @@ function App() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  Ghi chú (tùy chọn)
+                  {t.note}
                 </label>
                 <input
                   value={modal.note}
                   onChange={(e) => setModal({ ...modal, note: e.target.value })}
-                  placeholder="Ví dụ: Toán, Tiếng Anh…"
+                  placeholder={t.notePlaceholder}
                   className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
@@ -690,8 +1377,13 @@ function App() {
 
               <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#8896AC" }}>
                 <Clock3 size={12} />
-                {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {DAY_LABELS[modal.day]}
+                {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {t.dayLabels[modal.day]}
               </div>
+              {modal.start + modal.duration > END_MIN && (
+                <div className="text-xs px-3 py-2 rounded-lg" style={{ background: "#FFECEC", color: "#E03131" }}>
+                  {t.invalidTime}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mt-5">
@@ -702,7 +1394,7 @@ function App() {
                   style={{ background: "#FFECEC", color: "#E03131" }}
                 >
                   <Trash2 size={14} className="inline -mt-0.5 mr-1" />
-                  Xóa
+                  {t.delete}
                 </button>
               )}
               <div className="flex-1" />
@@ -711,16 +1403,384 @@ function App() {
                 className="px-3 py-2 rounded-lg text-sm"
                 style={{ background: "#F3F5F7" }}
               >
-                Hủy
+                {t.cancel}
               </button>
               <button
                 onClick={saveModal}
+                disabled={modal.start + modal.duration > END_MIN}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium"
-                style={{ background: "#1B2A4A" }}
+                style={{
+                  background: modal.start + modal.duration > END_MIN ? "#B7C2D0" : "#1B2A4A",
+                  cursor: modal.start + modal.duration > END_MIN ? "not-allowed" : "pointer",
+                }}
               >
-                Lưu
+                {t.save}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {closeWeekModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.52)" }}
+          onClick={() => setCloseWeekModal(null)}
+        >
+          <div className="w-full max-w-md rounded-xl p-5 shadow-xl" style={{ background: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-2"><Wallet size={17} /> {t.closeWeekTitle}</h2>
+              <button onClick={() => setCloseWeekModal(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+            </div>
+            <div className="text-xs mb-4" style={{ color: "#6B7A99" }}>
+              {viewWeekKey} → {viewWeekEnd}. {t.closeWeekHelp}
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.sessionsCount}</div>
+                <div className="text-lg font-semibold mt-1">{viewWeekSummary.sessions}</div>
+              </div>
+              <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.hoursCount}</div>
+                <div className="text-lg font-semibold mt-1">{(viewWeekSummary.minutes / 60).toFixed(1)}</div>
+              </div>
+              <div className="rounded-lg p-3" style={{ background: "#E4FBF3" }}>
+                <div className="text-[11px]" style={{ color: "#087F5B" }}>{t.taughtAmount}</div>
+                <div className="text-sm font-semibold mt-1" style={{ color: "#087F5B" }}>{formatMoney(viewWeekSummary.amount, lang)}</div>
+              </div>
+            </div>
+            <label className="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer" style={{ borderColor: closeWeekModal.confirmed ? "#12B886" : "#DDE3E8", background: closeWeekModal.confirmed ? "#E4FBF3" : "#FFFFFF" }}>
+              <input
+                type="checkbox"
+                checked={closeWeekModal.confirmed}
+                onChange={(e) => setCloseWeekModal({ confirmed: e.target.checked })}
+                className="mt-0.5 w-4 h-4 accent-emerald-600"
+              />
+              <span className="text-sm">{t.closeWeekText}</span>
+            </label>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setCloseWeekModal(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
+              <button
+                disabled={!closeWeekModal.confirmed}
+                onClick={finishCloseWeek}
+                className="px-4 py-2 rounded-lg text-sm text-white font-medium"
+                style={{ background: closeWeekModal.confirmed ? "#F59F00" : "#B7C2D0", cursor: closeWeekModal.confirmed ? "pointer" : "not-allowed" }}
+              >{t.closeWeek}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {attendanceConfirm && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.5)" }}
+          onClick={() => setAttendanceConfirm(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
+            style={{ background: "#FFFFFF" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-2"><Check size={17} /> {t.confirmAttendance}</h2>
+              <button onClick={() => setAttendanceConfirm(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+            </div>
+            <div className="rounded-lg p-3 mb-4" style={{ background: "#F3F5F7" }}>
+              <div className="text-sm font-semibold">{attendanceConfirm.student?.name || "?"}</div>
+              <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>
+                {attendanceConfirm.key.split("|")[0]} · {fmtTime(attendanceConfirm.session.start)}–{fmtTime(attendanceConfirm.session.start + attendanceConfirm.session.duration)}
+              </div>
+              {attendanceConfirm.session.note && <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>{attendanceConfirm.session.note}</div>}
+            </div>
+            <label className="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer" style={{ borderColor: attendanceConfirm.confirmed ? "#12B886" : "#DDE3E8", background: attendanceConfirm.confirmed ? "#E4FBF3" : "#FFFFFF" }}>
+              <input
+                type="checkbox"
+                checked={attendanceConfirm.confirmed}
+                onChange={(e) => setAttendanceConfirm({ ...attendanceConfirm, confirmed: e.target.checked })}
+                className="mt-0.5 w-4 h-4 accent-emerald-600"
+              />
+              <span className="text-sm">{attendanceConfirm.taught ? t.undoAttendanceText : t.confirmAttendanceText}</span>
+            </label>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setAttendanceConfirm(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
+              <button
+                disabled={!attendanceConfirm.confirmed}
+                onClick={() => {
+                  updateLessonStatus(
+                    attendanceConfirm.key,
+                    attendanceConfirm.session,
+                    attendanceConfirm.student,
+                    attendanceConfirm.taught ? "planned" : "completed"
+                  );
+                  setAttendanceConfirm(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm text-white font-medium transition"
+                style={{ background: attendanceConfirm.confirmed ? "#12B886" : "#B7C2D0", cursor: attendanceConfirm.confirmed ? "pointer" : "not-allowed" }}
+              >
+                {t.confirmAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {studentModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.45)" }}
+          onClick={() => setStudentModal(null)}
+        >
+          <div className="w-full max-w-sm rounded-xl p-5 shadow-xl" style={{ background: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold flex items-center gap-2"><Pencil size={16} /> {t.editStudent}</h2>
+              <button onClick={() => setStudentModal(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.studentNamePlaceholder}</label>
+                <input
+                  value={studentModal.name}
+                  onChange={(e) => setStudentModal({ ...studentModal, name: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.hourlyRate}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="10000"
+                  value={studentModal.hourlyRate}
+                  onChange={(e) => setStudentModal({ ...studentModal, hourlyRate: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.studentColor}</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {STUDENT_COLORS.map((color, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setStudentModal({ ...studentModal, color: index })}
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition"
+                      style={{ background: color.bg, boxShadow: studentModal.color === index ? `0 0 0 3px #FFFFFF, 0 0 0 5px ${color.bg}` : "none" }}
+                      aria-label={`${t.studentColor} ${index + 1}`}
+                    >
+                      {studentModal.color === index && <Check size={14} style={{ color: "#FFFFFF" }} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setStudentModal(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
+              <button onClick={saveStudentModal} className="px-4 py-2 rounded-lg text-sm text-white font-medium" style={{ background: "#1B2A4A" }}>{t.save}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {payrollOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-6"
+          style={{ background: "rgba(27,42,74,0.55)" }}
+          onClick={() => setPayrollOpen(false)}
+        >
+          <div
+            className="w-full max-w-5xl rounded-xl shadow-xl flex flex-col overflow-hidden"
+            style={{ background: "#FFFFFF", maxHeight: "92vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-5 border-b flex items-center justify-between gap-3" style={{ borderColor: "#DDE3E8" }}>
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2"><Wallet size={18} /> {t.payrollTitle}</h2>
+                <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>{t.completed}: {payrollOccurrences.filter((x) => x.status === "completed").length} / {payrollOccurrences.length}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="month"
+                  value={payrollMonth}
+                  onChange={(e) => setPayrollMonth(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm border font-medium"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+                <button onClick={() => setPayrollOpen(false)} style={{ color: "#6B7A99" }}><X size={20} /></button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.sessionsCount}</div>
+                  <div className="text-xl font-semibold mt-1">{payrollRows.reduce((sum, row) => sum + row.sessions, 0)}</div>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.hoursCount}</div>
+                  <div className="text-xl font-semibold mt-1">{(payrollRows.reduce((sum, row) => sum + row.minutes, 0) / 60).toFixed(1)}</div>
+                </div>
+                <div className="rounded-lg p-3" style={{ background: "#E4FBF3" }}>
+                  <div className="text-xs" style={{ color: "#087F5B" }}>{t.totalAmount}</div>
+                  <div className="text-xl font-semibold mt-1" style={{ color: "#087F5B" }}>{formatMoney(payrollTotal, lang)}</div>
+                </div>
+              </div>
+
+              {payrollRows.length > 0 && (
+                <div className="overflow-x-auto border rounded-lg mb-5" style={{ borderColor: "#DDE3E8" }}>
+                  <table className="w-full text-sm">
+                    <thead style={{ background: "#F3F5F7", color: "#6B7A99" }}>
+                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.sessionsCount}</th><th className="text-right px-3 py-2">{t.hoursCount}</th><th className="text-right px-3 py-2">{t.hourlyRate}</th><th className="text-right px-3 py-2">{t.totalAmount}</th></tr>
+                    </thead>
+                    <tbody>
+                      {payrollRows.map((row) => (
+                        <tr key={row.student.id} className="border-t" style={{ borderColor: "#DDE3E8" }}>
+                          <td className="px-3 py-2 font-medium">{row.student.name}</td>
+                          <td className="px-3 py-2 text-right">{row.sessions}</td>
+                          <td className="px-3 py-2 text-right">{(row.minutes / 60).toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right">{row.hourlyRate === null ? "—" : formatMoney(row.hourlyRate, lang)}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{formatMoney(row.amount, lang)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                {payrollOccurrences.length === 0 && <div className="text-sm text-center py-8" style={{ color: "#6B7A99" }}>{t.noLessons}</div>}
+                {payrollOccurrences.map((item) => (
+                  <div key={item.key} className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: "#DDE3E8" }}>
+                    <div className="sm:w-36 shrink-0">
+                      <div className="text-sm font-semibold">{item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                      <div className="text-xs font-mono" style={{ color: "#6B7A99" }}>{fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{item.student?.name || "?"}</div>
+                      <div className="text-xs truncate" style={{ color: "#6B7A99" }}>{item.session.note || `${item.session.duration} phút`} · {formatMoney((item.session.duration / 60) * (Number(item.student?.hourlyRate) || 0), lang)}</div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      {[
+                        ["completed", t.completed, "#12B886", "#E4FBF3"],
+                        ["planned", t.planned, "#6B7A99", "#F3F5F7"],
+                        ["cancelled", t.cancelled, "#E03131", "#FFECEC"],
+                      ].map(([status, label, color, soft]) => (
+                        <button
+                          key={status}
+                          onClick={() => updateLessonStatus(item.key, item.session, item.student, status)}
+                          className="px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
+                          style={{ background: item.status === status ? color : soft, color: item.status === status ? "#FFFFFF" : color }}
+                        >
+                          {status === "completed" && <Check size={12} />} {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncModalOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.45)" }}
+          onClick={() => setSyncModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
+            style={{ background: "#FFFFFF" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold flex items-center gap-1.5">
+                <Cloud size={16} /> {t.syncTitle}
+              </h2>
+              <button onClick={() => setSyncModalOpen(false)} style={{ color: "#6B7A99" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs mb-3" style={{ color: "#6B7A99" }}>
+              {t.syncIntro}
+            </p>
+
+            {syncCfg ? (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncedAs}
+                  </label>
+                  <div
+                    className="mt-1.5 px-3 py-2 rounded-lg text-sm font-mono"
+                    style={{ background: "#F3F5F7" }}
+                  >
+                    {syncCfg.syncCode}
+                  </div>
+                </div>
+                <button
+                  onClick={copySyncLink}
+                  className="px-3 py-2 rounded-lg text-sm text-white font-medium"
+                  style={{ background: "#1B2A4A" }}
+                >
+                  {t.copyLink}
+                </button>
+                {copyFeedback && (
+                  <div className="text-xs break-all" style={{ color: "#6B7A99" }}>
+                    {copyFeedback}
+                  </div>
+                )}
+                <p className="text-xs" style={{ color: "#6B7A99" }}>
+                  {t.syncHelp}
+                </p>
+                <button
+                  onClick={disconnectSync}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: "#FFECEC", color: "#E03131" }}
+                >
+                  {t.disconnect}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncConfigLabel}
+                  </label>
+                  <textarea
+                    value={syncConfigText}
+                    onChange={(e) => setSyncConfigText(e.target.value)}
+                    placeholder={t.syncConfigPlaceholder}
+                    rows={6}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg text-xs font-mono border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    {t.syncCodeLabel}
+                  </label>
+                  <input
+                    value={syncCodeInput}
+                    onChange={(e) => setSyncCodeInput(e.target.value)}
+                    placeholder={t.syncCodePlaceholder}
+                    className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                    style={{ borderColor: "#DDE3E8" }}
+                  />
+                </div>
+                <button
+                  onClick={connectSync}
+                  className="px-3 py-2 rounded-lg text-sm text-white font-medium"
+                  style={{ background: "#1B2A4A" }}
+                >
+                  {t.connect}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
