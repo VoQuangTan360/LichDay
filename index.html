@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lịch dạy hàng tuần</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#6B7A99;font-size:14px;">
+    Đang tải…
+  </div>
+</div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ---------- Small inline icons (replace lucide-react) ----------
+function Icon({ children, size = 16, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
+const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>;
+const Trash2 = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Icon>;
+const Users = (p) => <Icon {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></Icon>;
+const ZoomIn = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
+const ZoomOut = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></Icon>;
+const Clock3 = (p) => <Icon {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 12" /></Icon>;
+
+// ---------- Constants ----------
+const DAY_LABELS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+const DAY_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const STUDENT_COLORS = [
+  { bg: "#4C6EF5", soft: "#EAF0FF" },
+  { bg: "#12B886", soft: "#E4FBF3" },
+  { bg: "#F59F00", soft: "#FFF4E0" },
+  { bg: "#E64980", soft: "#FEEBF3" },
+  { bg: "#7950F2", soft: "#F1EBFF" },
+  { bg: "#FA5252", soft: "#FFECEC" },
+  { bg: "#0F8B8D", soft: "#E3F6F6" },
+  { bg: "#B5651D", soft: "#F8EEE3" },
+];
+const DURATIONS = [
+  { m: 30, label: "30 phút" },
+  { m: 45, label: "45 phút" },
+  { m: 60, label: "1 giờ" },
+  { m: 90, label: "1.5 giờ" },
+  { m: 120, label: "2 giờ" },
+];
+const START_HOUR = 7;
+const END_HOUR = 23;
+const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR);
+const START_MIN = START_HOUR * 60;
+const END_MIN = END_HOUR * 60;
+const SNAP = 15;
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+function fmtTime(mins) {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+const seedStudents = [
+  { id: "s1", name: "Học sinh A", color: 0 },
+  { id: "s2", name: "Học sinh B", color: 1 },
+  { id: "s3", name: "Học sinh C", color: 2 },
+];
+const seedSessions = [
+  { id: uid(), studentId: "s1", day: 0, start: 17 * 60, duration: 90, note: "Toán lớp 9" },
+  { id: uid(), studentId: "s2", day: 1, start: 19 * 60, duration: 60, note: "" },
+  { id: uid(), studentId: "s3", day: 2, start: 16 * 60 + 30, duration: 90, note: "Tiếng Anh" },
+  { id: uid(), studentId: "s1", day: 3, start: 17 * 60, duration: 90, note: "" },
+  { id: uid(), studentId: "s2", day: 4, start: 20 * 60, duration: 45, note: "" },
+  { id: uid(), studentId: "s3", day: 5, start: 9 * 60, duration: 120, note: "Ôn thi" },
+];
+
+function App() {
+  const [students, setStudents] = useState(seedStudents);
+  const [sessions, setSessions] = useState(seedSessions);
+  const [filterId, setFilterId] = useState(null);
+  const [rowHeight, setRowHeight] = useState(56);
+  const [modal, setModal] = useState(null);
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [newStudentName, setNewStudentName] = useState("");
+  const [confirmDeleteStudent, setConfirmDeleteStudent] = useState(null);
+  const [now, setNow] = useState(new Date());
+
+  const gridRef = useRef(null);
+  const scrollRef = useRef(null);
+  const dragState = useRef(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const nextColor = students.length % STUDENT_COLORS.length;
+
+  function addStudent() {
+    const name = newStudentName.trim();
+    if (!name) return;
+    setStudents((prev) => [...prev, { id: uid(), name, color: prev.length % STUDENT_COLORS.length }]);
+    setNewStudentName("");
+    setAddingStudent(false);
+  }
+
+  function removeStudent(id) {
+    setStudents((prev) => prev.filter((s) => s.id !== id));
+    setSessions((prev) => prev.filter((s) => s.studentId !== id));
+    if (filterId === id) setFilterId(null);
+    setConfirmDeleteStudent(null);
+  }
+
+  function openAddModal(day, startMin) {
+    if (students.length === 0) {
+      setAddingStudent(true);
+      return;
+    }
+    setModal({
+      mode: "add",
+      studentId: filterId || students[0].id,
+      day,
+      start: clamp(Math.round(startMin / SNAP) * SNAP, START_MIN, END_MIN - 30),
+      duration: 60,
+      note: "",
+    });
+  }
+
+  function openEditModal(session) {
+    setModal({ mode: "edit", id: session.id, ...session });
+  }
+
+  function saveModal() {
+    if (modal.mode === "add") {
+      setSessions((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          studentId: modal.studentId,
+          day: modal.day,
+          start: modal.start,
+          duration: modal.duration,
+          note: modal.note,
+        },
+      ]);
+    } else {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === modal.id
+            ? { ...s, studentId: modal.studentId, day: modal.day, start: modal.start, duration: modal.duration, note: modal.note }
+            : s
+        )
+      );
+    }
+    setModal(null);
+  }
+
+  function deleteModalSession() {
+    setSessions((prev) => prev.filter((s) => s.id !== modal.id));
+    setModal(null);
+  }
+
+  const onSessionMouseDown = useCallback(
+    (e, session) => {
+      e.stopPropagation();
+      if (e.button !== 0) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      dragState.current = {
+        id: session.id,
+        moved: false,
+        startX: e.clientX,
+        startY: e.clientY,
+        origDay: session.day,
+        origStart: session.start,
+        rect,
+        colWidth: rect.width / 7,
+      };
+      window.addEventListener("mousemove", onDragMove);
+      window.addEventListener("mouseup", onDragUp);
+    },
+    [rowHeight]
+  );
+
+  const onDragMove = useCallback(
+    (e) => {
+      const ds = dragState.current;
+      if (!ds) return;
+      const dx = e.clientX - ds.startX;
+      const dy = e.clientY - ds.startY;
+      if (!ds.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      ds.moved = true;
+
+      const deltaMinutes = (dy / rowHeight) * 60;
+      let newStart = Math.round((ds.origStart + deltaMinutes) / SNAP) * SNAP;
+      newStart = clamp(newStart, START_MIN, END_MIN - 15);
+
+      const dayIndex = clamp(Math.floor((e.clientX - ds.rect.left) / ds.colWidth), 0, 6);
+
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === ds.id
+            ? { ...s, day: dayIndex, start: clamp(newStart, START_MIN, END_MIN - s.duration) }
+            : s
+        )
+      );
+    },
+    [rowHeight]
+  );
+
+  const onDragUp = useCallback(() => {
+    window.removeEventListener("mousemove", onDragMove);
+    window.removeEventListener("mouseup", onDragUp);
+    dragState.current = null;
+  }, [onDragMove]);
+
+  const resizeState = useRef(null);
+  const onResizeMouseDown = useCallback(
+    (e, session) => {
+      e.stopPropagation();
+      e.preventDefault();
+      resizeState.current = { id: session.id, startY: e.clientY, origDuration: session.duration };
+      window.addEventListener("mousemove", onResizeMove);
+      window.addEventListener("mouseup", onResizeUp);
+    },
+    [rowHeight]
+  );
+  const onResizeMove = useCallback(
+    (e) => {
+      const rs = resizeState.current;
+      if (!rs) return;
+      const dy = e.clientY - rs.startY;
+      const deltaMinutes = (dy / rowHeight) * 60;
+      let newDuration = Math.round((rs.origDuration + deltaMinutes) / SNAP) * SNAP;
+      newDuration = clamp(newDuration, 15, END_MIN - START_MIN);
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === rs.id ? { ...s, duration: clamp(newDuration, 15, END_MIN - s.start) } : s
+        )
+      );
+    },
+    [rowHeight]
+  );
+  const onResizeUp = useCallback(() => {
+    window.removeEventListener("mousemove", onResizeMove);
+    window.removeEventListener("mouseup", onResizeUp);
+    resizeState.current = null;
+  }, [onResizeMove]);
+
+  function onColumnClick(e, dayIndex) {
+    if (dragState.current && dragState.current.moved) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const minutes = START_MIN + (y / rowHeight) * 60;
+    openAddModal(dayIndex, minutes);
+  }
+
+  const totalHeight = rowHeight * (END_HOUR - START_HOUR);
+  const jsDay = now.getDay();
+  const todayIndex = (jsDay + 6) % 7;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const studentById = (id) => students.find((s) => s.id === id);
+  const colorFor = (student) => STUDENT_COLORS[(student?.color ?? 0) % STUDENT_COLORS.length];
+
+  const visibleSessions = sessions.filter((s) => !filterId || s.studentId === filterId);
+
+  return (
+    <div
+      className="w-full min-h-screen flex flex-col"
+      style={{ background: "#F3F5F7", color: "#16213E" }}
+    >
+      <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "#1B2A4A" }}>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight" style={{ color: "#F3F5F7" }}>
+            Lịch dạy hàng tuần
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "#8FA0C2" }}>
+            Kéo để dời buổi học · kéo cạnh dưới để đổi thời lượng · bấm ô trống để thêm buổi mới
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRowHeight((h) => clamp(h - 12, 32, 100))}
+            className="p-2 rounded-lg hover:opacity-80 transition"
+            style={{ background: "#25365C", color: "#F3F5F7" }}
+            title="Thu nhỏ"
+          >
+            <ZoomOut size={16} />
+          </button>
+          <button
+            onClick={() => setRowHeight((h) => clamp(h + 12, 32, 100))}
+            className="p-2 rounded-lg hover:opacity-80 transition"
+            style={{ background: "#25365C", color: "#F3F5F7" }}
+            title="Phóng to"
+          >
+            <ZoomIn size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col md:flex-row min-h-0">
+        <div className="md:w-64 w-full shrink-0 border-b md:border-b-0 md:border-r" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3" style={{ color: "#6B7A99" }}>
+              <Users size={15} />
+              <span className="text-xs font-semibold uppercase tracking-wide">Học sinh</span>
+            </div>
+
+            <button
+              onClick={() => setFilterId(null)}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition"
+              style={{
+                background: filterId === null ? "#1B2A4A" : "transparent",
+                color: filterId === null ? "#FFFFFF" : "#16213E",
+              }}
+            >
+              Tất cả học sinh
+            </button>
+
+            <div className="flex flex-col gap-1 mt-1">
+              {students.map((s) => {
+                const c = colorFor(s);
+                const count = sessions.filter((x) => x.studentId === s.id).length;
+                const active = filterId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer group"
+                    style={{ background: active ? c.soft : "transparent" }}
+                    onClick={() => setFilterId(active ? null : s.id)}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.bg }} />
+                    <span className="flex-1 truncate">{s.name}</span>
+                    <span className="text-xs" style={{ color: "#6B7A99" }}>
+                      {count}
+                    </span>
+                    {confirmDeleteStudent === s.id ? (
+                      <button
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{ background: "#FA5252", color: "#fff" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeStudent(s.id);
+                        }}
+                      >
+                        Xóa?
+                      </button>
+                    ) : (
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition"
+                        style={{ color: "#6B7A99" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteStudent(s.id);
+                          setTimeout(() => setConfirmDeleteStudent(null), 2500);
+                        }}
+                        title="Xóa học sinh"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {addingStudent ? (
+              <div className="mt-3 flex flex-col gap-2">
+                <input
+                  autoFocus
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addStudent();
+                    if (e.key === "Escape") setAddingStudent(false);
+                  }}
+                  placeholder="Tên học sinh"
+                  className="w-full px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={addStudent}
+                    className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white"
+                    style={{ background: STUDENT_COLORS[nextColor].bg }}
+                  >
+                    Thêm
+                  </button>
+                  <button
+                    onClick={() => setAddingStudent(false)}
+                    className="px-3 py-1.5 rounded-lg text-sm"
+                    style={{ background: "#F3F5F7" }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddingStudent(true)}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-dashed transition hover:opacity-80"
+                style={{ borderColor: "#B7C2D0", color: "#6B7A99" }}
+              >
+                <Plus size={14} /> Thêm học sinh
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex border-b" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
+            <div className="w-14 shrink-0" />
+            <div className="flex-1 grid grid-cols-7">
+              {DAY_LABELS.map((d, i) => (
+                <div
+                  key={d}
+                  className="py-2.5 text-center text-sm font-medium border-l"
+                  style={{
+                    borderColor: "#DDE3E8",
+                    color: i === todayIndex ? "#1B2A4A" : "#6B7A99",
+                    background: i === todayIndex ? "#EAF0FF" : "transparent",
+                  }}
+                >
+                  <span className="hidden sm:inline">{d}</span>
+                  <span className="sm:hidden">{DAY_SHORT[i]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ background: "#FFFFFF" }}>
+            <div className="flex" style={{ height: totalHeight }}>
+              <div className="w-14 shrink-0 relative" style={{ color: "#8896AC" }}>
+                {HOURS.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute right-2 text-[11px] font-mono"
+                    style={{ top: (h - START_HOUR) * rowHeight - 6 }}
+                  >
+                    {String(h).padStart(2, "0")}:00
+                  </div>
+                ))}
+              </div>
+
+              <div ref={gridRef} className="flex-1 grid grid-cols-7 relative">
+                {Array.from({ length: 7 }, (_, dayIndex) => (
+                  <div
+                    key={dayIndex}
+                    className="relative border-l cursor-crosshair"
+                    style={{
+                      borderColor: "#DDE3E8",
+                      backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${
+                        rowHeight - 1
+                      }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`,
+                      background:
+                        dayIndex === todayIndex
+                          ? `#FBFCFE repeating-linear-gradient(to bottom, transparent 0, transparent ${
+                              rowHeight - 1
+                            }px, #EBEEF1 ${rowHeight - 1}px, #EBEEF1 ${rowHeight}px)`
+                          : undefined,
+                    }}
+                    onClick={(e) => onColumnClick(e, dayIndex)}
+                  >
+                    {dayIndex === todayIndex && nowMinutes >= START_MIN && nowMinutes <= END_MIN && (
+                      <div
+                        className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
+                        style={{ top: ((nowMinutes - START_MIN) / 60) * rowHeight }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full -ml-0.5" style={{ background: "#FF6B4A" }} />
+                        <span className="flex-1 h-px" style={{ background: "#FF6B4A" }} />
+                      </div>
+                    )}
+
+                    {visibleSessions
+                      .filter((s) => s.day === dayIndex)
+                      .map((s) => {
+                        const student = studentById(s.studentId);
+                        const c = colorFor(student);
+                        const top = ((s.start - START_MIN) / 60) * rowHeight;
+                        const height = Math.max((s.duration / 60) * rowHeight, 18);
+                        const compact = height < 34;
+                        return (
+                          <div
+                            key={s.id}
+                            onMouseDown={(e) => onSessionMouseDown(e, s)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!dragState.current || !dragState.current.moved) openEditModal(s);
+                            }}
+                            className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden select-none shadow-sm"
+                            style={{
+                              top,
+                              height,
+                              background: c.bg,
+                              color: "#fff",
+                              cursor: "grab",
+                              zIndex: 5,
+                            }}
+                          >
+                            <div className="text-[11px] font-semibold leading-tight truncate">
+                              {student?.name || "?"}
+                            </div>
+                            {!compact && (
+                              <div className="text-[10px] leading-tight opacity-90 font-mono truncate">
+                                {fmtTime(s.start)}–{fmtTime(s.start + s.duration)}
+                              </div>
+                            )}
+                            {!compact && s.note && (
+                              <div className="text-[10px] leading-tight opacity-80 truncate">{s.note}</div>
+                            )}
+                            <div
+                              onMouseDown={(e) => onResizeMouseDown(e, s)}
+                              className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize"
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {modal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: "rgba(27,42,74,0.45)" }}
+          onClick={() => setModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
+            style={{ background: "#FFFFFF" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold">
+                {modal.mode === "add" ? "Thêm buổi học" : "Sửa buổi học"}
+              </h2>
+              <button onClick={() => setModal(null)} style={{ color: "#6B7A99" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                  Học sinh
+                </label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {students.map((s) => {
+                    const c = colorFor(s);
+                    const active = modal.studentId === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setModal({ ...modal, studentId: s.id })}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border"
+                        style={{
+                          borderColor: active ? c.bg : "#DDE3E8",
+                          background: active ? c.soft : "#fff",
+                        }}
+                      >
+                        <span className="w-2 h-2 rounded-full" style={{ background: c.bg }} />
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                  Ngày
+                </label>
+                <div className="grid grid-cols-7 gap-1 mt-1.5">
+                  {DAY_SHORT.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => setModal({ ...modal, day: i })}
+                      className="py-1.5 rounded-md text-xs font-medium"
+                      style={{
+                        background: modal.day === i ? "#1B2A4A" : "#F3F5F7",
+                        color: modal.day === i ? "#fff" : "#16213E",
+                      }}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    Giờ bắt đầu
+                  </label>
+                  <div className="flex gap-1 mt-1.5">
+                    <select
+                      className="flex-1 px-2 py-1.5 rounded-lg text-sm border font-mono"
+                      style={{ borderColor: "#DDE3E8" }}
+                      value={Math.floor(modal.start / 60)}
+                      onChange={(e) =>
+                        setModal({ ...modal, start: Number(e.target.value) * 60 + (modal.start % 60) })
+                      }
+                    >
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>
+                          {String(h).padStart(2, "0")}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="flex-1 px-2 py-1.5 rounded-lg text-sm border font-mono"
+                      style={{ borderColor: "#DDE3E8" }}
+                      value={modal.start % 60}
+                      onChange={(e) =>
+                        setModal({ ...modal, start: Math.floor(modal.start / 60) * 60 + Number(e.target.value) })
+                      }
+                    >
+                      {[0, 15, 30, 45].map((m) => (
+                        <option key={m} value={m}>
+                          {String(m).padStart(2, "0")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                    Thời lượng
+                  </label>
+                  <select
+                    className="w-full mt-1.5 px-2 py-1.5 rounded-lg text-sm border"
+                    style={{ borderColor: "#DDE3E8" }}
+                    value={modal.duration}
+                    onChange={(e) => setModal({ ...modal, duration: Number(e.target.value) })}
+                  >
+                    {DURATIONS.map((d) => (
+                      <option key={d.m} value={d.m}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
+                  Ghi chú (tùy chọn)
+                </label>
+                <input
+                  value={modal.note}
+                  onChange={(e) => setModal({ ...modal, note: e.target.value })}
+                  placeholder="Ví dụ: Toán, Tiếng Anh…"
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#8896AC" }}>
+                <Clock3 size={12} />
+                {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {DAY_LABELS[modal.day]}
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              {modal.mode === "edit" && (
+                <button
+                  onClick={deleteModalSession}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ background: "#FFECEC", color: "#E03131" }}
+                >
+                  <Trash2 size={14} className="inline -mt-0.5 mr-1" />
+                  Xóa
+                </button>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={() => setModal(null)}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={{ background: "#F3F5F7" }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={saveModal}
+                className="px-4 py-2 rounded-lg text-sm text-white font-medium"
+                style={{ background: "#1B2A4A" }}
+              >
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
