@@ -260,31 +260,35 @@ const TRANSLATIONS = {
 };
 
 const STUDENT_COLORS = [
-  { bg: "#7B90D9", soft: "#EAF0FF" }, // xanh dương
-  { bg: "#4FAE8C", soft: "#E4FBF3" }, // xanh ngọc
-  { bg: "#E0A94D", soft: "#FFF4E0" }, // cam vàng
-  { bg: "#D97CA0", soft: "#FEEBF3" }, // hồng
-  { bg: "#9478E0", soft: "#F1EBFF" }, // tím
-  { bg: "#E27878", soft: "#FFECEC" }, // đỏ
-  { bg: "#4A9698", soft: "#E3F6F6" }, // xanh mòng két
-  { bg: "#B08054", soft: "#F8EEE3" }, // nâu
-  { bg: "#5C9FDB", soft: "#E7F5FF" }, // xanh dương
-  { bg: "#6BB87D", soft: "#EBFBEE" }, // xanh lá
-  { bg: "#E08A4D", soft: "#FFF0E6" }, // cam
-  { bg: "#B571C7", soft: "#F8F0FC" }, // hồng tím
-  { bg: "#4FA3B3", soft: "#E3FAFC" }, // xanh cyan
-  { bg: "#C96C8C", soft: "#FFF0F6" }, // hồng đỏ
-  { bg: "#7E96E8", soft: "#EDF2FF" }, // xanh dương nhạt
-  { bg: "#5C9367", soft: "#EBFBEE" }, // xanh lá đậm
-  { bg: "#D19A4D", soft: "#FFF9DB" }, // cam vàng đậm
-  { bg: "#8770D1", soft: "#F3F0FF" }, // tím
-  { bg: "#4B9280", soft: "#E6FCF5" }, // xanh ngọc đậm
-  { bg: "#C2696B", soft: "#FFF5F5" }, // đỏ đậm
-  { bg: "#5590C4", soft: "#E7F5FF" }, // xanh dương đậm
-  { bg: "#9A5FA8", soft: "#F8F0FC" }, // tím đậm
-  { bg: "#B05777", soft: "#FFF0F6" }, // hồng đậm
-  { bg: "#8574C4", soft: "#F3F0FF" }, // chàm
+  { bg: "#C698D8", soft: "#F4ECF7" }, // tím lavender
+  { bg: "#BD9BC0", soft: "#F3EDF3" }, // tím khói
+  { bg: "#ECCDD5", soft: "#FBF6F7" }, // hồng phấn
+  { bg: "#DBB1BB", soft: "#F8F0F2" }, // hồng mận nhạt
+  { bg: "#DDB1CC", soft: "#F8F0F5" }, // hồng tím
+  { bg: "#DEC3D6", soft: "#F9F4F7" }, // hoa cà nhạt
+
+  { bg: "#F0ECBC", soft: "#FCFBF2" }, // vàng chanh nhạt
+  { bg: "#EDE695", soft: "#FBFAEB" }, // vàng bơ
+  { bg: "#E4D8AE", soft: "#FAF7F0" }, // be vàng
+  { bg: "#F1C3B3", soft: "#FCF4F1" }, // cam đào
+  { bg: "#E3A0B2", soft: "#F9EDF1" }, // hồng đậm
+  { bg: "#ECC7BF", soft: "#FBF4F3" }, // hồng cam nhạt
+
+  { bg: "#E0938B", soft: "#F9EBEA" }, // đỏ san hô
+  { bg: "#DEA4A2", soft: "#F9EEEE" }, // hồng đất
+  { bg: "#E2B2AE", soft: "#F9F1F0" }, // hồng nude
+  { bg: "#CBDDE7", soft: "#F5F8FA" }, // xanh dương rất nhạt
+  { bg: "#AEC9E7", soft: "#F0F5FA" }, // xanh baby
+  { bg: "#8B9FE8", soft: "#EAEDFA" }, // xanh tím (periwinkle)
+
+  { bg: "#82BABB", soft: "#E8F2F2" }, // xanh ngọc trầm
+  { bg: "#8BB399", soft: "#EAF1EC" }, // xanh rêu nhạt
+  { bg: "#E6C3AD", soft: "#FAF4F0" }, // cam be
+  { bg: "#E6CABF", soft: "#FAF5F3" }, // hồng be
+  { bg: "#EDDDCD", soft: "#FBF8F6" }, // be sáng
+  { bg: "#DFCEBE", soft: "#F9F6F3" }, // nâu be nhạt
 ];
+
 const START_HOUR = 7;
 const END_HOUR = 23;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR);
@@ -528,6 +532,7 @@ function App() {
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
+  const updateViewedWeekSessionsRef = useRef(null);
   const suppressSessionEditRef = useRef(false);
   const viewedWeekClosingRef = useRef(false);
   const dbRef = useRef(null);
@@ -1043,6 +1048,10 @@ function App() {
       return { ...previous, [viewWeekKey]: updater(base.map((session) => normalizeSession({ ...session }, students))) };
     });
   }
+  // Luôn giữ ref trỏ tới bản mới nhất của updateViewedWeekSessions (đóng gói viewWeekKey/activeSessionsForView
+  // của lần render hiện tại), để các callback được memo hóa (onDragMove, onResizeMove) không dùng phải
+  // closure cũ khi người dùng đã chuyển sang xem một tuần khác.
+  updateViewedWeekSessionsRef.current = updateViewedWeekSessions;
 
   function openAddModal(day, startMin) {
     if (students.length === 0) {
@@ -1196,7 +1205,7 @@ function App() {
 
       const dayIndex = clamp(Math.floor((e.clientX - ds.rect.left) / ds.colWidth), 0, 6);
 
-      updateViewedWeekSessions((prev) =>
+      updateViewedWeekSessionsRef.current((prev) =>
         prev.map((s) =>
           s.id === ds.id
             ? (recordsRefreshSessionIdsRef.current.add(s.id), { ...s, day: dayIndex, start: clamp(newStart, START_MIN, END_MIN - s.duration) })
@@ -1239,7 +1248,7 @@ function App() {
       const deltaMinutes = (dy / rowHeight) * 60;
       let newDuration = Math.round((rs.origDuration + deltaMinutes) / SNAP) * SNAP;
       newDuration = clamp(newDuration, MIN_DURATION, END_MIN - START_MIN);
-      updateViewedWeekSessions((prev) =>
+      updateViewedWeekSessionsRef.current((prev) =>
         prev.map((s) =>
           s.id === rs.id
             ? (recordsRefreshSessionIdsRef.current.add(s.id), { ...s, duration: clamp(newDuration, MIN_DURATION, END_MIN - s.start) })
