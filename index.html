@@ -82,6 +82,7 @@ const TRANSLATIONS = {
     markTaught: "Đánh dấu đã dạy",
     confirmAttendance: "Xác nhận buổi dạy",
     confirmAttendanceText: "Tôi xác nhận buổi học này đã được dạy.",
+    confirmGroupAttendanceText: "Tôi xác nhận trạng thái chấm công của các học sinh trên là chính xác.",
     undoAttendanceText: "Tôi xác nhận muốn bỏ trạng thái đã dạy của buổi học này.",
     confirmAction: "Xác nhận",
     invalidTime: "Buổi học phải kết thúc trước hoặc đúng 23:00.",
@@ -93,6 +94,10 @@ const TRANSLATIONS = {
     taughtAmount: "Tiền công đã dạy",
     editStudent: "Sửa thông tin học viên",
     studentColor: "Màu nhận diện",
+    classMembers: "Học sinh trong lớp",
+    memberRate: "Đơn giá riêng/giờ",
+    selectAtLeastOne: "Hãy chọn ít nhất một học sinh.",
+    attendanceByStudent: "Chấm công từng học sinh",
     sessionsCount: "Số buổi",
     hoursCount: "Số giờ",
     totalAmount: "Thành tiền",
@@ -102,8 +107,8 @@ const TRANSLATIONS = {
     day: "Ngày",
     startTime: "Giờ bắt đầu",
     duration: "Thời lượng",
-    note: "Ghi chú (tùy chọn)",
-    notePlaceholder: "Ví dụ: Toán, Tiếng Anh…",
+    note: "Tên lớp / môn học (tùy chọn)",
+    notePlaceholder: "Ví dụ: Lớp Toán 9, Tiếng Anh…",
     delete: "Xóa",
     save: "Lưu",
     syncOffline: "Chưa đồng bộ",
@@ -154,6 +159,7 @@ const TRANSLATIONS = {
     markTaught: "Mark as taught",
     confirmAttendance: "Confirm attendance",
     confirmAttendanceText: "I confirm that this lesson was taught.",
+    confirmGroupAttendanceText: "I confirm that the attendance statuses above are correct.",
     undoAttendanceText: "I confirm that I want to remove the taught status from this lesson.",
     confirmAction: "Confirm",
     invalidTime: "The lesson must end by 23:00.",
@@ -165,6 +171,10 @@ const TRANSLATIONS = {
     taughtAmount: "Taught amount",
     editStudent: "Edit student information",
     studentColor: "Display color",
+    classMembers: "Class members",
+    memberRate: "Individual hourly rate",
+    selectAtLeastOne: "Select at least one student.",
+    attendanceByStudent: "Attendance by student",
     sessionsCount: "Sessions",
     hoursCount: "Hours",
     totalAmount: "Amount",
@@ -174,8 +184,8 @@ const TRANSLATIONS = {
     day: "Day",
     startTime: "Start time",
     duration: "Duration",
-    note: "Note (optional)",
-    notePlaceholder: "e.g. Math, English…",
+    note: "Class name / subject (optional)",
+    notePlaceholder: "e.g. Math 9, English…",
     delete: "Delete",
     save: "Save",
     syncOffline: "Not synced",
@@ -214,6 +224,22 @@ const STUDENT_COLORS = [
   { bg: "#FA5252", soft: "#FFECEC" },
   { bg: "#0F8B8D", soft: "#E3F6F6" },
   { bg: "#B5651D", soft: "#F8EEE3" },
+  { bg: "#228BE6", soft: "#E7F5FF" },
+  { bg: "#40C057", soft: "#EBFBEE" },
+  { bg: "#F76707", soft: "#FFF0E6" },
+  { bg: "#AE3EC9", soft: "#F8F0FC" },
+  { bg: "#1098AD", soft: "#E3FAFC" },
+  { bg: "#D6336C", soft: "#FFF0F6" },
+  { bg: "#5C7CFA", soft: "#EDF2FF" },
+  { bg: "#2B8A3E", soft: "#EBFBEE" },
+  { bg: "#E67700", soft: "#FFF9DB" },
+  { bg: "#6741D9", soft: "#F3F0FF" },
+  { bg: "#087F5B", soft: "#E6FCF5" },
+  { bg: "#C92A2A", soft: "#FFF5F5" },
+  { bg: "#1971C2", soft: "#E7F5FF" },
+  { bg: "#862E9C", soft: "#F8F0FC" },
+  { bg: "#A61E4D", soft: "#FFF0F6" },
+  { bg: "#5F3DC4", soft: "#F3F0FF" },
 ];
 const START_HOUR = 7;
 const END_HOUR = 23;
@@ -288,12 +314,12 @@ const savedData = loadSaved();
 
 function lessonRecordFromTemplate(key, session, student, status) {
   const lessonDate = key.split("|")[0];
-  const hourlyRate = Number(student?.hourlyRate) || 0;
+  const hourlyRate = Number(session.studentRates?.[student?.id] ?? student?.hourlyRate) || 0;
   return {
     key,
     date: lessonDate,
     sessionId: session.id,
-    studentId: session.studentId,
+    studentId: student?.id || session.studentId,
     studentName: student?.name || "?",
     start: session.start,
     duration: session.duration,
@@ -304,6 +330,32 @@ function lessonRecordFromTemplate(key, session, student, status) {
   };
 }
 
+function normalizeSession(session, students) {
+  const studentIds = Array.isArray(session.studentIds) && session.studentIds.length
+    ? session.studentIds
+    : session.studentId
+    ? [session.studentId]
+    : [];
+  const studentRates = { ...(session.studentRates || {}) };
+  studentIds.forEach((studentId) => {
+    if (studentRates[studentId] == null) {
+      studentRates[studentId] = Number((students || []).find((student) => student.id === studentId)?.hourlyRate) || 0;
+    }
+  });
+  return { effectiveFrom: "1970-01-01", ...session, studentId: studentIds[0] || null, studentIds, studentRates };
+}
+
+function normalizeLessonRecords(records) {
+  const normalized = {};
+  Object.values(records || {}).forEach((record) => {
+    if (!record || !record.studentId || !record.key) return;
+    const parts = record.key.split("|");
+    const key = parts.length >= 3 ? record.key : `${record.key}|${record.studentId}`;
+    normalized[key] = { ...record, key };
+  });
+  return normalized;
+}
+
 function migrateLegacyAttendance(attendance, sessions, students) {
   const records = {};
   Object.entries(attendance || {}).forEach(([key, status]) => {
@@ -312,7 +364,8 @@ function migrateLegacyAttendance(attendance, sessions, students) {
     const session = (sessions || []).find((item) => item.id === sessionId);
     if (!session) return;
     const student = (students || []).find((item) => item.id === session.studentId);
-    records[key] = lessonRecordFromTemplate(key, session, student, status);
+    const studentKey = `${key}|${session.studentId}`;
+    records[studentKey] = lessonRecordFromTemplate(studentKey, normalizeSession(session, students), student, status);
   });
   return records;
 }
@@ -345,7 +398,7 @@ function App() {
   const t = TRANSLATIONS[lang];
   const [students, setStudents] = useState(savedData?.students || seedStudents);
   const [sessions, setSessions] = useState(() =>
-    (savedData?.sessions || seedSessions).map((session) => ({ effectiveFrom: "1970-01-01", ...session }))
+    (savedData?.sessions || seedSessions).map((session) => normalizeSession(session, savedData?.students || seedStudents))
   );
   const [filterId, setFilterId] = useState(null);
   const [rowHeight, setRowHeight] = useState(savedData?.rowHeight || 56);
@@ -361,8 +414,10 @@ function App() {
   const [closeWeekModal, setCloseWeekModal] = useState(null);
   const [attendance, setAttendance] = useState(savedData?.attendance || {});
   const [lessonRecords, setLessonRecords] = useState(() =>
-    savedData?.lessonRecords ||
-    migrateLegacyAttendance(savedData?.attendance, savedData?.sessions || seedSessions, savedData?.students || seedStudents)
+    normalizeLessonRecords(
+      savedData?.lessonRecords ||
+      migrateLegacyAttendance(savedData?.attendance, savedData?.sessions || seedSessions, savedData?.students || seedStudents)
+    )
   );
   const [payrollOpen, setPayrollOpen] = useState(false);
   const [payrollMonth, setPayrollMonth] = useState(currentMonthKey());
@@ -439,10 +494,10 @@ function App() {
             applyingRemoteRef.current = true;
             remoteReadyRef.current = true;
             if (data.students) setStudents(data.students);
-            if (data.sessions) setSessions(data.sessions.map((session) => ({ effectiveFrom: "1970-01-01", ...session })));
+            if (data.sessions) setSessions(data.sessions.map((session) => normalizeSession(session, data.students || students)));
             if (data.attendance) setAttendance(data.attendance);
             if (data.lessonRecords) {
-              setLessonRecords(data.lessonRecords);
+              setLessonRecords(normalizeLessonRecords(data.lessonRecords));
             } else if (data.attendance) {
               setLessonRecords(migrateLegacyAttendance(data.attendance, data.sessions || sessions, data.students || students));
             }
@@ -535,14 +590,16 @@ function App() {
     setTimeout(() => setCopyFeedback(""), 4000);
   }
 
-  const nextColor = students.length % STUDENT_COLORS.length;
+  const usedColors = new Set(students.map((student) => student.color));
+  const nextColor = STUDENT_COLORS.findIndex((_, index) => !usedColors.has(index));
+  const suggestedColor = nextColor >= 0 ? nextColor : students.length % STUDENT_COLORS.length;
 
   function addStudent() {
     const name = newStudentName.trim();
     if (!name) return;
     setStudents((prev) => [
       ...prev,
-      { id: uid(), name, color: prev.length % STUDENT_COLORS.length, hourlyRate: Math.max(0, Number(newStudentRate) || 0) },
+      { id: uid(), name, color: suggestedColor, hourlyRate: Math.max(0, Number(newStudentRate) || 0) },
     ]);
     setNewStudentName("");
     setNewStudentRate(200000);
@@ -564,7 +621,16 @@ function App() {
 
   function removeStudent(id) {
     setStudents((prev) => prev.filter((s) => s.id !== id));
-    setSessions((prev) => prev.filter((s) => s.studentId !== id));
+    setSessions((prev) =>
+      prev
+        .map((session) => {
+          const studentIds = session.studentIds.filter((studentId) => studentId !== id);
+          const studentRates = { ...session.studentRates };
+          delete studentRates[id];
+          return { ...session, studentIds, studentRates, studentId: studentIds[0] || null };
+        })
+        .filter((session) => session.studentIds.length > 0)
+    );
     if (filterId === id) setFilterId(null);
     setConfirmDeleteStudent(null);
   }
@@ -574,9 +640,13 @@ function App() {
       setAddingStudent(true);
       return;
     }
+    const initialStudentId = filterId || students[0].id;
+    const initialStudent = students.find((student) => student.id === initialStudentId);
     setModal({
       mode: "add",
-      studentId: filterId || students[0].id,
+      studentId: initialStudentId,
+      studentIds: [initialStudentId],
+      studentRates: { [initialStudentId]: Number(initialStudent?.hourlyRate) || 0 },
       day,
       start: clamp(Math.round(startMin / SNAP) * SNAP, START_MIN, END_MIN - 30),
       duration: 60,
@@ -590,16 +660,22 @@ function App() {
 
   function saveModal() {
     if (modal.start + modal.duration > END_MIN) return;
+    if (!modal.studentIds?.length) return;
+    const sessionValues = {
+      studentId: modal.studentIds[0],
+      studentIds: modal.studentIds,
+      studentRates: modal.studentRates,
+      day: modal.day,
+      start: modal.start,
+      duration: modal.duration,
+      note: modal.note,
+    };
     if (modal.mode === "add") {
       setSessions((prev) => [
         ...prev,
         {
           id: uid(),
-          studentId: modal.studentId,
-          day: modal.day,
-          start: modal.start,
-          duration: modal.duration,
-          note: modal.note,
+          ...sessionValues,
           effectiveFrom: dateKey(new Date()),
         },
       ]);
@@ -607,7 +683,7 @@ function App() {
       setSessions((prev) =>
         prev.map((s) =>
           s.id === modal.id
-            ? { ...s, studentId: modal.studentId, day: modal.day, start: modal.start, duration: modal.duration, note: modal.note }
+            ? { ...s, ...sessionValues }
             : s
         )
       );
@@ -743,7 +819,7 @@ function App() {
   const studentById = (id) => students.find((s) => s.id === id);
   const colorFor = (student) => STUDENT_COLORS[(student?.color ?? 0) % STUDENT_COLORS.length];
 
-  const visibleSessions = sessions.filter((s) => !filterId || s.studentId === filterId);
+  const visibleSessions = sessions.filter((s) => !filterId || s.studentIds.includes(filterId));
 
   function updateLessonStatus(key, session, student, status) {
     if (weeklyClosings[weekKeyForDateString(key.slice(0, 10))]) return;
@@ -762,9 +838,12 @@ function App() {
   const viewWeekCompletedRecords = Object.values(lessonRecords).filter(
     (record) => record.date >= viewWeekKey && record.date <= viewWeekEnd && record.status === "completed"
   );
+  const viewWeekClassRecords = Array.from(
+    new Map(viewWeekCompletedRecords.map((record) => [`${record.date}|${record.sessionId}`, record])).values()
+  );
   const viewWeekSummary = {
-    sessions: viewWeekCompletedRecords.length,
-    minutes: viewWeekCompletedRecords.reduce((sum, record) => sum + record.duration, 0),
+    sessions: viewWeekClassRecords.length,
+    minutes: viewWeekClassRecords.reduce((sum, record) => sum + record.duration, 0),
     amount: viewWeekCompletedRecords.reduce((sum, record) => sum + record.amount, 0),
   };
 
@@ -821,17 +900,27 @@ function App() {
       sessions
         .filter((session) => session.day === weekday && lessonDate >= (session.effectiveFrom || "1970-01-01"))
         .forEach((session) => {
-          const key = `${lessonDate}|${session.id}`;
-          payrollOccurrenceKeys.add(key);
-          const storedRecord = lessonRecords[key];
-          if (storedRecord) {
-            payrollOccurrences.push(occurrenceFromRecord(storedRecord));
-            return;
-          }
-          const student = studentById(session.studentId);
-          const status = attendance[key] || "planned";
-          const amount = status === "completed" ? (session.duration / 60) * (Number(student?.hourlyRate) || 0) : 0;
-          payrollOccurrences.push({ key, date, session, student, status, amount });
+          session.studentIds.forEach((studentId) => {
+            const key = `${lessonDate}|${session.id}|${studentId}`;
+            payrollOccurrenceKeys.add(key);
+            const storedRecord = lessonRecords[key];
+            if (storedRecord) {
+              payrollOccurrences.push(occurrenceFromRecord(storedRecord));
+              return;
+            }
+            const student = studentById(studentId);
+            const status = attendance[key] || "planned";
+            const hourlyRate = Number(session.studentRates?.[studentId] ?? student?.hourlyRate) || 0;
+            const amount = status === "completed" ? (session.duration / 60) * hourlyRate : 0;
+            payrollOccurrences.push({
+              key,
+              date,
+              session: { ...session, studentId },
+              student: student ? { ...student, hourlyRate } : null,
+              status,
+              amount,
+            });
+          });
         });
     }
     Object.values(lessonRecords).forEach((record) => {
@@ -994,7 +1083,7 @@ function App() {
             <div className="flex flex-col gap-1 mt-1">
               {students.map((s) => {
                 const c = colorFor(s);
-                const count = sessions.filter((x) => x.studentId === s.id).length;
+                const count = sessions.filter((x) => x.studentIds.includes(s.id)).length;
                 const active = filterId === s.id;
                 return (
                   <div
@@ -1080,7 +1169,7 @@ function App() {
                   <button
                     onClick={addStudent}
                     className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white"
-                    style={{ background: STUDENT_COLORS[nextColor].bg }}
+                    style={{ background: STUDENT_COLORS[suggestedColor].bg }}
                   >
                     {t.add}
                   </button>
@@ -1171,13 +1260,21 @@ function App() {
                     {visibleSessions
                       .filter((s) => s.day === dayIndex)
                       .map((s) => {
-                        const student = studentById(s.studentId);
+                        const members = s.studentIds.map(studentById).filter(Boolean);
+                        const student = members[0];
                         const c = colorFor(student);
                         const top = ((s.start - START_MIN) / 60) * rowHeight;
                         const height = Math.max((s.duration / 60) * rowHeight, 18);
                         const compact = height < 34;
                         const occurrenceKey = currentWeekOccurrenceKey(s);
-                        const taught = (lessonRecords[occurrenceKey]?.status || attendance[occurrenceKey]) === "completed";
+                        const memberStatuses = Object.fromEntries(
+                          members.map((member) => {
+                            const memberKey = `${occurrenceKey}|${member.id}`;
+                            return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "planned"];
+                          })
+                        );
+                        const completedCount = Object.values(memberStatuses).filter((status) => status === "completed").length;
+                        const taught = members.length > 0 && completedCount === members.length;
                         return (
                           <div
                             key={s.id}
@@ -1210,8 +1307,8 @@ function App() {
                                 setAttendanceConfirm({
                                   key: occurrenceKey,
                                   session: s,
-                                  student,
-                                  taught,
+                                  members,
+                                  statuses: memberStatuses,
                                   confirmed: false,
                                 });
                               }}
@@ -1226,15 +1323,17 @@ function App() {
                               />
                             </button>
                             <div className="text-[11px] font-semibold leading-tight truncate">
-                              {student?.name || "?"}
+                              {s.note || (members.length === 1 ? members[0]?.name : `${members.length} ${t.students.toLowerCase()}`)}
                             </div>
                             {!compact && (
                               <div className="text-[10px] leading-tight opacity-90 font-mono truncate">
                                 {fmtTime(s.start)}–{fmtTime(s.start + s.duration)}
                               </div>
                             )}
-                            {!compact && s.note && (
-                              <div className="text-[10px] leading-tight opacity-80 truncate">{s.note}</div>
+                            {!compact && (
+                              <div className="text-[10px] leading-tight opacity-80 truncate">
+                                {members.length === 1 ? members[0]?.name : `${completedCount}/${members.length} ${t.completed.toLowerCase()}`}
+                              </div>
                             )}
                             <div
                               onMouseDown={(e) => onResizeMouseDown(e, s)}
@@ -1258,8 +1357,8 @@ function App() {
           onClick={() => setModal(null)}
         >
           <div
-            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
-            style={{ background: "#FFFFFF" }}
+            className="w-full max-w-lg rounded-xl p-5 shadow-xl overflow-y-auto"
+            style={{ background: "#FFFFFF", maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -1274,16 +1373,24 @@ function App() {
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
-                  {t.students}
+                  {t.classMembers}
                 </label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {students.map((s) => {
                     const c = colorFor(s);
-                    const active = modal.studentId === s.id;
+                    const active = modal.studentIds?.includes(s.id);
                     return (
                       <button
                         key={s.id}
-                        onClick={() => setModal({ ...modal, studentId: s.id })}
+                        onClick={() => {
+                          const studentIds = active
+                            ? modal.studentIds.filter((id) => id !== s.id)
+                            : [...(modal.studentIds || []), s.id];
+                          const studentRates = { ...(modal.studentRates || {}) };
+                          if (active) delete studentRates[s.id];
+                          else studentRates[s.id] = Number(s.hourlyRate) || 0;
+                          setModal({ ...modal, studentIds, studentRates, studentId: studentIds[0] || null });
+                        }}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border"
                         style={{
                           borderColor: active ? c.bg : "#DDE3E8",
@@ -1296,7 +1403,34 @@ function App() {
                     );
                   })}
                 </div>
+                {!modal.studentIds?.length && <div className="text-xs mt-1.5" style={{ color: "#E03131" }}>{t.selectAtLeastOne}</div>}
               </div>
+
+              {modal.studentIds?.length > 0 && (
+                <div className="rounded-lg border p-3 flex flex-col gap-2" style={{ borderColor: "#DDE3E8", background: "#FBFCFE" }}>
+                  <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.memberRate}</label>
+                  {modal.studentIds.map((studentId) => {
+                    const member = studentById(studentId);
+                    return (
+                      <div key={studentId} className="flex items-center gap-2">
+                        <span className="text-xs flex-1 truncate">{member?.name || "?"}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="10000"
+                          value={modal.studentRates?.[studentId] ?? 0}
+                          onChange={(e) => setModal({
+                            ...modal,
+                            studentRates: { ...modal.studentRates, [studentId]: Math.max(0, Number(e.target.value) || 0) },
+                          })}
+                          className="w-32 px-2 py-1.5 rounded-lg text-sm border text-right"
+                          style={{ borderColor: "#DDE3E8" }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
@@ -1420,11 +1554,11 @@ function App() {
               </button>
               <button
                 onClick={saveModal}
-                disabled={modal.start + modal.duration > END_MIN}
+                disabled={modal.start + modal.duration > END_MIN || !modal.studentIds?.length}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium"
                 style={{
-                  background: modal.start + modal.duration > END_MIN ? "#B7C2D0" : "#1B2A4A",
-                  cursor: modal.start + modal.duration > END_MIN ? "not-allowed" : "pointer",
+                  background: modal.start + modal.duration > END_MIN || !modal.studentIds?.length ? "#B7C2D0" : "#1B2A4A",
+                  cursor: modal.start + modal.duration > END_MIN || !modal.studentIds?.length ? "not-allowed" : "pointer",
                 }}
               >
                 {t.save}
@@ -1491,20 +1625,51 @@ function App() {
           onClick={() => setAttendanceConfirm(null)}
         >
           <div
-            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
-            style={{ background: "#FFFFFF" }}
+            className="w-full max-w-lg rounded-xl p-5 shadow-xl overflow-y-auto"
+            style={{ background: "#FFFFFF", maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold flex items-center gap-2"><Check size={17} /> {t.confirmAttendance}</h2>
+              <h2 className="text-base font-semibold flex items-center gap-2"><Check size={17} /> {t.attendanceByStudent}</h2>
               <button onClick={() => setAttendanceConfirm(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
             </div>
             <div className="rounded-lg p-3 mb-4" style={{ background: "#F3F5F7" }}>
-              <div className="text-sm font-semibold">{attendanceConfirm.student?.name || "?"}</div>
+              <div className="text-sm font-semibold">{attendanceConfirm.session.note || t.editSession}</div>
               <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>
                 {attendanceConfirm.key.split("|")[0]} · {fmtTime(attendanceConfirm.session.start)}–{fmtTime(attendanceConfirm.session.start + attendanceConfirm.session.duration)}
               </div>
-              {attendanceConfirm.session.note && <div className="text-xs mt-1" style={{ color: "#6B7A99" }}>{attendanceConfirm.session.note}</div>}
+            </div>
+            <div className="flex flex-col gap-2 mb-4">
+              {attendanceConfirm.members.map((member) => {
+                const status = attendanceConfirm.statuses[member.id] || "planned";
+                const rate = attendanceConfirm.session.studentRates?.[member.id] ?? member.hourlyRate;
+                return (
+                  <div key={member.id} className="border rounded-lg p-3" style={{ borderColor: "#DDE3E8" }}>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-sm font-medium">{member.name}</span>
+                      <span className="text-xs" style={{ color: "#6B7A99" }}>{formatMoney(rate, lang)}/{lang === "vi" ? "giờ" : "hour"}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        ["completed", t.completed, "#12B886", "#E4FBF3"],
+                        ["planned", t.planned, "#6B7A99", "#F3F5F7"],
+                        ["cancelled", t.cancelled, "#E03131", "#FFECEC"],
+                      ].map(([value, label, color, soft]) => (
+                        <button
+                          key={value}
+                          onClick={() => setAttendanceConfirm({
+                            ...attendanceConfirm,
+                            statuses: { ...attendanceConfirm.statuses, [member.id]: value },
+                            confirmed: false,
+                          })}
+                          className="px-2 py-1.5 rounded-md text-xs font-medium"
+                          style={{ background: status === value ? color : soft, color: status === value ? "#FFFFFF" : color }}
+                        >{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <label className="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer" style={{ borderColor: attendanceConfirm.confirmed ? "#12B886" : "#DDE3E8", background: attendanceConfirm.confirmed ? "#E4FBF3" : "#FFFFFF" }}>
               <input
@@ -1513,19 +1678,21 @@ function App() {
                 onChange={(e) => setAttendanceConfirm({ ...attendanceConfirm, confirmed: e.target.checked })}
                 className="mt-0.5 w-4 h-4 accent-emerald-600"
               />
-              <span className="text-sm">{attendanceConfirm.taught ? t.undoAttendanceText : t.confirmAttendanceText}</span>
+              <span className="text-sm">{t.confirmGroupAttendanceText}</span>
             </label>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setAttendanceConfirm(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
               <button
                 disabled={!attendanceConfirm.confirmed}
                 onClick={() => {
-                  updateLessonStatus(
-                    attendanceConfirm.key,
-                    attendanceConfirm.session,
-                    attendanceConfirm.student,
-                    attendanceConfirm.taught ? "planned" : "completed"
-                  );
+                  attendanceConfirm.members.forEach((member) => {
+                    updateLessonStatus(
+                      `${attendanceConfirm.key}|${member.id}`,
+                      { ...attendanceConfirm.session, studentId: member.id },
+                      member,
+                      attendanceConfirm.statuses[member.id] || "planned"
+                    );
+                  });
                   setAttendanceConfirm(null);
                 }}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium transition"
