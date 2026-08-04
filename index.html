@@ -1317,10 +1317,25 @@ function App() {
       studentRates: { ...session.studentRates },
       studentPricing: { ...session.studentPricing },
     }, students));
-    setDefaultScheduleVersions((previous) => ({ ...previous, [viewWeekKey]: nextDefault }));
+    // Tuần được chọn trở thành mốc mặc định mới. Xóa các phiên bản mặc định ở những tuần sau,
+    // nếu không khi đến các tuần đó, phiên bản cũ sẽ lại được ưu tiên và ghi đè lịch vừa chọn.
+    setDefaultScheduleVersions((previous) => {
+      const next = {};
+      Object.entries(previous).forEach(([weekKey, items]) => {
+        if (weekKey < viewWeekKey) next[weekKey] = items;
+      });
+      next[viewWeekKey] = nextDefault;
+      return next;
+    });
+    // Xoá TOÀN BỘ lịch đè (weekOverrides) từ tuần đang xem trở đi, để mọi tuần sau đều đi theo
+    // lịch mặc định mới này — kể cả những tuần trước đó đã từng bị chỉnh tay (kéo thả/thêm/xoá buổi học).
+    // Các tuần đã CHỐT (weeklyClosings) được giữ nguyên vì đó là dữ liệu lịch sử đã khoá, không nên đổi.
     setWeekOverrides((previous) => {
-      const next = { ...previous };
-      delete next[viewWeekKey];
+      const next = {};
+      Object.keys(previous).forEach((weekKey) => {
+        if (weekKey >= viewWeekKey && !weeklyClosings[weekKey]) return;
+        next[weekKey] = previous[weekKey];
+      });
       return next;
     });
     setDefaultScheduleFeedback(t.defaultScheduleSet);
