@@ -1327,17 +1327,25 @@ function App() {
       next[viewWeekKey] = nextDefault;
       return next;
     });
-    // Xoá TOÀN BỘ lịch đè (weekOverrides) từ tuần đang xem trở đi, để mọi tuần sau đều đi theo
-    // lịch mặc định mới này — kể cả những tuần trước đó đã từng bị chỉnh tay (kéo thả/thêm/xoá buổi học).
-    // Các tuần đã CHỐT (weeklyClosings) được giữ nguyên vì đó là dữ liệu lịch sử đã khoá, không nên đổi.
-    setWeekOverrides((previous) => {
-      const next = {};
-      Object.keys(previous).forEach((weekKey) => {
-        if (weekKey >= viewWeekKey && !weeklyClosings[weekKey]) return;
-        next[weekKey] = previous[weekKey];
-      });
-      return next;
-    });
+    // Từ tuần SAU tuần đang chọn, xoá mọi lịch đã chỉnh riêng để các tuần tương lai
+    // hiển thị y hệt lịch của tuần được chọn.
+    setWeekOverrides((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
+    ));
+
+    // Các tuần tương lai có thể đã được chốt hoặc đã phát sinh dữ liệu điểm danh theo lịch cũ.
+    // Xoá các snapshot/trạng thái tương lai đó để chúng không tiếp tục hiển thị lịch cũ.
+    const selectedWeekEnd = dateKey(viewWeekDates[6]);
+    setWeeklyClosings((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
+    ));
+    setAttendance((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([key]) => key.split("|")[0] <= selectedWeekEnd)
+    ));
+    setLessonRecords((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([, record]) => record.date <= selectedWeekEnd)
+    ));
+
     setDefaultScheduleFeedback(t.defaultScheduleSet);
     window.setTimeout(() => setDefaultScheduleFeedback(""), 3500);
   }
