@@ -1309,16 +1309,33 @@ function App() {
   });
   const activeSessionsForView = weekOverrides[viewWeekKey] || defaultSessionsForView;
   function setViewedWeekAsDefault() {
+    // Chụp một bản sao độc lập của đúng lịch đang hiển thị trong tuần được chọn.
+    // Các tuần sau sẽ kế thừa bản này, nhưng khi chỉnh một tuần cụ thể thì
+    // updateViewedWeekSessions sẽ tạo weekOverrides riêng cho đúng tuần đó.
     const sourceSessions = viewedWeekClosing?.sessionsSnapshot || activeSessionsForView;
-    const nextDefault = sourceSessions.map((session) => normalizeSession({
-      ...session,
-      effectiveFrom: viewWeekKey,
-      studentIds: [...session.studentIds],
-      studentRates: { ...session.studentRates },
-      studentPricing: { ...session.studentPricing },
-    }, students));
-    // Tuần được chọn trở thành mốc mặc định mới. Xóa các phiên bản mặc định ở những tuần sau,
-    // nếu không khi đến các tuần đó, phiên bản cũ sẽ lại được ưu tiên và ghi đè lịch vừa chọn.
+    const nextDefault = sourceSessions.map((session) => {
+      const {
+        _occurrenceDate,
+        _sourceSessionId,
+        _members,
+        ...cleanSession
+      } = session;
+      return normalizeSession({
+        ...cleanSession,
+        effectiveFrom: viewWeekKey,
+        studentIds: [...(session.studentIds || [])],
+        studentRates: { ...(session.studentRates || {}) },
+        studentPricing: Object.fromEntries(
+          Object.entries(session.studentPricing || {}).map(([studentId, pricing]) => [
+            studentId,
+            { ...pricing },
+          ])
+        ),
+      }, students);
+    });
+
+    // Giữ các mốc mặc định trong quá khứ, thay tuần đang chọn bằng mốc mới và
+    // xóa toàn bộ mốc mặc định tương lai để không có lịch cũ chen vào về sau.
     setDefaultScheduleVersions((previous) => {
       const next = {};
       Object.entries(previous).forEach(([weekKey, items]) => {
@@ -1327,14 +1344,16 @@ function App() {
       next[viewWeekKey] = nextDefault;
       return next;
     });
-    // Từ tuần SAU tuần đang chọn, xoá mọi lịch đã chỉnh riêng để các tuần tương lai
-    // hiển thị y hệt lịch của tuần được chọn.
+
+    // Xóa lịch chỉnh riêng của các tuần SAU tuần được chọn. Vì vậy lúc đầu tất cả
+    // tuần sau đều giống hệt lịch mặc định mới. Khi người dùng sửa một tuần sau,
+    // hệ thống sẽ tự tạo override riêng và chỉ tuần đó thay đổi.
     setWeekOverrides((previous) => Object.fromEntries(
       Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
     ));
 
-    // Các tuần tương lai có thể đã được chốt hoặc đã phát sinh dữ liệu điểm danh theo lịch cũ.
-    // Xoá các snapshot/trạng thái tương lai đó để chúng không tiếp tục hiển thị lịch cũ.
+    // Xóa snapshot và dữ liệu phát sinh theo lịch cũ ở tương lai để giao diện không
+    // hiển thị lại các buổi cũ. Tuần được chọn và toàn bộ quá khứ vẫn được giữ nguyên.
     const selectedWeekEnd = dateKey(viewWeekDates[6]);
     setWeeklyClosings((previous) => Object.fromEntries(
       Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
