@@ -382,6 +382,7 @@ function App() {
   const dbRef = useRef(null);
   const unsubRef = useRef(null);
   const applyingRemoteRef = useRef(false);
+  const remoteReadyRef = useRef(false);
   const pushTimerRef = useRef(null);
 
   useEffect(() => {
@@ -408,6 +409,11 @@ function App() {
 
   // connect to Firestore whenever syncCfg changes
   useEffect(() => {
+    remoteReadyRef.current = false;
+    if (pushTimerRef.current) {
+      clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = null;
+    }
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
@@ -431,6 +437,7 @@ function App() {
           if (snap.exists) {
             const data = snap.data();
             applyingRemoteRef.current = true;
+            remoteReadyRef.current = true;
             if (data.students) setStudents(data.students);
             if (data.sessions) setSessions(data.sessions.map((session) => ({ effectiveFrom: "1970-01-01", ...session })));
             if (data.attendance) setAttendance(data.attendance);
@@ -443,7 +450,12 @@ function App() {
             if (data.lang) setLang(data.lang);
             if (data.rowHeight) setRowHeight(data.rowHeight);
           } else {
-            docRef.set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() });
+            docRef
+              .set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() })
+              .catch((e) => {
+                console.warn("Initial sync failed:", e);
+                setSyncStatus("error");
+              });
           }
         },
         (err) => {
@@ -472,9 +484,10 @@ function App() {
       applyingRemoteRef.current = false;
       return;
     }
-    if (dbRef.current && syncCfg?.syncCode) {
+    if (dbRef.current && syncCfg?.syncCode && remoteReadyRef.current) {
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(() => {
+        pushTimerRef.current = null;
         dbRef.current
           .collection("schedules")
           .doc(syncCfg.syncCode)
