@@ -82,24 +82,42 @@ const TRANSLATIONS = {
     markTaught: "Đánh dấu đã dạy",
     confirmAttendance: "Xác nhận buổi dạy",
     confirmAttendanceText: "Tôi xác nhận buổi học này đã được dạy.",
-    confirmGroupAttendanceText: "Tôi xác nhận trạng thái chấm công của các học sinh trên là chính xác.",
     undoAttendanceText: "Tôi xác nhận muốn bỏ trạng thái đã dạy của buổi học này.",
     confirmAction: "Xác nhận",
     invalidTime: "Buổi học phải kết thúc trước hoặc đúng 23:00.",
+    overlapWarning: "Cảnh báo: thời gian này đang trùng với một lớp khác. Bạn vẫn có thể lưu nếu đây là chủ ý.",
+    setDefaultSchedule: "Đặt lịch mặc định",
+    defaultScheduleSet: "Đã đặt tuần này làm lịch mặc định cho các tuần tiếp theo.",
+    hourlyPricing: "Tính theo giờ",
+    fixedPricing: "Giá trọn buổi",
+    sessionNote: "Ghi chú buổi học",
+    sessionNotePlaceholder: "Ví dụ: học bù, đổi giờ theo yêu cầu, nội dung cần lưu ý…",
+    attendanceDetails: "Chi tiết học và nghỉ",
+    attendedDates: "Buổi đã học",
+    absentDates: "Buổi đã nghỉ",
     closeWeek: "Chốt tuần",
     weekClosed: "Đã chốt tuần",
     closeWeekTitle: "Xác nhận chốt công tuần",
     closeWeekText: "Tôi xác nhận số buổi và tiền công của tuần này là chính xác.",
     closeWeekHelp: "Sau khi chốt, tuần này sẽ bị khóa và lịch tự chuyển sang tuần kế tiếp.",
+    reopenWeek: "Mở lại tuần",
+    reopenWeekTitle: "Xác nhận mở lại tuần",
+    reopenWeekText: "Tôi xác nhận muốn mở khóa tuần này để chỉnh sửa dữ liệu.",
+    reopenWeekHelp: "Sau khi mở lại, lịch và điểm danh của tuần này có thể được chỉnh sửa.",
     taughtAmount: "Tiền công đã dạy",
     editStudent: "Sửa thông tin học viên",
     studentColor: "Màu nhận diện",
     classMembers: "Học sinh trong lớp",
-    memberRate: "Đơn giá riêng/giờ",
+    memberRate: "Cách tính và học phí riêng",
+    lessonPrice: "Học phí",
     selectAtLeastOne: "Hãy chọn ít nhất một học sinh.",
     attendanceByStudent: "Chấm công từng học sinh",
     sessionsCount: "Số buổi",
     hoursCount: "Số giờ",
+    classSessions: "Số lớp đã dạy",
+    classHours: "Giờ đứng lớp",
+    attendanceCount: "Lượt học viên",
+    billableHours: "Giờ tính công",
     totalAmount: "Thành tiền",
     noLessons: "Không có buổi học trong tháng này.",
     addSession: "Thêm buổi học",
@@ -126,13 +144,17 @@ const TRANSLATIONS = {
     copyLink: "Sao chép liên kết đồng bộ",
     syncedAs: "Mã đồng bộ hiện tại",
     syncHelp: "Mở liên kết này trên thiết bị khác để xem cùng một lịch.",
+    invalidSyncCode: "Mã đồng bộ chỉ được chứa chữ, số, dấu gạch ngang hoặc gạch dưới (3–80 ký tự).",
+    invalidFirebaseConfig: "Cấu hình Firebase không hợp lệ.",
+    conflictError: "Dữ liệu này vừa được cập nhật trên thiết bị khác. Hãy đóng hộp thoại, kiểm tra dữ liệu mới rồi thử lại.",
     dayLabels: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
     dayShort: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     durations: [
-      { m: 30, label: "30 phút" },
       { m: 45, label: "45 phút" },
       { m: 60, label: "1 giờ" },
+      { m: 75, label: "1 giờ 15 phút" },
       { m: 90, label: "1.5 giờ" },
+      { m: 105, label: "1 giờ 45 phút" },
       { m: 120, label: "2 giờ" },
     ],
   },
@@ -159,24 +181,42 @@ const TRANSLATIONS = {
     markTaught: "Mark as taught",
     confirmAttendance: "Confirm attendance",
     confirmAttendanceText: "I confirm that this lesson was taught.",
-    confirmGroupAttendanceText: "I confirm that the attendance statuses above are correct.",
     undoAttendanceText: "I confirm that I want to remove the taught status from this lesson.",
     confirmAction: "Confirm",
     invalidTime: "The lesson must end by 23:00.",
+    overlapWarning: "Warning: this time overlaps another class. You can still save if this is intentional.",
+    setDefaultSchedule: "Set default schedule",
+    defaultScheduleSet: "This week is now the default schedule for future weeks.",
+    hourlyPricing: "Hourly rate",
+    fixedPricing: "Fixed lesson fee",
+    sessionNote: "Lesson note",
+    sessionNotePlaceholder: "e.g. make-up lesson, requested time change, important details…",
+    attendanceDetails: "Attendance details",
+    attendedDates: "Attended lessons",
+    absentDates: "Cancelled lessons",
     closeWeek: "Close week",
     weekClosed: "Week closed",
     closeWeekTitle: "Confirm weekly closing",
     closeWeekText: "I confirm that this week's lessons and payroll are correct.",
     closeWeekHelp: "After closing, this week will be locked and the schedule will move to the next week.",
+    reopenWeek: "Reopen week",
+    reopenWeekTitle: "Confirm reopening week",
+    reopenWeekText: "I confirm that I want to unlock this week for editing.",
+    reopenWeekHelp: "After reopening, this week's schedule and attendance can be edited.",
     taughtAmount: "Taught amount",
     editStudent: "Edit student information",
     studentColor: "Display color",
     classMembers: "Class members",
-    memberRate: "Individual hourly rate",
+    memberRate: "Individual pricing",
+    lessonPrice: "Lesson price",
     selectAtLeastOne: "Select at least one student.",
     attendanceByStudent: "Attendance by student",
     sessionsCount: "Sessions",
     hoursCount: "Hours",
+    classSessions: "Classes taught",
+    classHours: "Teaching hours",
+    attendanceCount: "Student attendances",
+    billableHours: "Billable hours",
     totalAmount: "Amount",
     noLessons: "No lessons in this month.",
     addSession: "Add session",
@@ -203,43 +243,47 @@ const TRANSLATIONS = {
     copyLink: "Copy sync link",
     syncedAs: "Current sync code",
     syncHelp: "Open this link on another device to see the same schedule.",
+    invalidSyncCode: "Sync code may contain only letters, numbers, hyphens or underscores (3–80 characters).",
+    invalidFirebaseConfig: "Invalid Firebase config.",
+    conflictError: "This data was updated on another device. Close this dialog, review the latest data, and try again.",
     dayLabels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     dayShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     durations: [
-      { m: 30, label: "30 min" },
       { m: 45, label: "45 min" },
       { m: 60, label: "1 hour" },
+      { m: 75, label: "1.25 hours" },
       { m: 90, label: "1.5 hours" },
+      { m: 105, label: "1.75 hours" },
       { m: 120, label: "2 hours" },
     ],
   },
 };
 
 const STUDENT_COLORS = [
-  { bg: "#4C6EF5", soft: "#EAF0FF" },
-  { bg: "#12B886", soft: "#E4FBF3" },
-  { bg: "#F59F00", soft: "#FFF4E0" },
-  { bg: "#E64980", soft: "#FEEBF3" },
-  { bg: "#7950F2", soft: "#F1EBFF" },
-  { bg: "#FA5252", soft: "#FFECEC" },
-  { bg: "#0F8B8D", soft: "#E3F6F6" },
-  { bg: "#B5651D", soft: "#F8EEE3" },
-  { bg: "#228BE6", soft: "#E7F5FF" },
-  { bg: "#40C057", soft: "#EBFBEE" },
-  { bg: "#F76707", soft: "#FFF0E6" },
-  { bg: "#AE3EC9", soft: "#F8F0FC" },
-  { bg: "#1098AD", soft: "#E3FAFC" },
-  { bg: "#D6336C", soft: "#FFF0F6" },
-  { bg: "#5C7CFA", soft: "#EDF2FF" },
-  { bg: "#2B8A3E", soft: "#EBFBEE" },
-  { bg: "#E67700", soft: "#FFF9DB" },
-  { bg: "#6741D9", soft: "#F3F0FF" },
-  { bg: "#087F5B", soft: "#E6FCF5" },
-  { bg: "#C92A2A", soft: "#FFF5F5" },
-  { bg: "#1971C2", soft: "#E7F5FF" },
-  { bg: "#862E9C", soft: "#F8F0FC" },
-  { bg: "#A61E4D", soft: "#FFF0F6" },
-  { bg: "#5F3DC4", soft: "#F3F0FF" },
+  { bg: "#7B90D9", soft: "#EAF0FF" }, // xanh dương
+  { bg: "#4FAE8C", soft: "#E4FBF3" }, // xanh ngọc
+  { bg: "#E0A94D", soft: "#FFF4E0" }, // cam vàng
+  { bg: "#D97CA0", soft: "#FEEBF3" }, // hồng
+  { bg: "#9478E0", soft: "#F1EBFF" }, // tím
+  { bg: "#E27878", soft: "#FFECEC" }, // đỏ
+  { bg: "#4A9698", soft: "#E3F6F6" }, // xanh mòng két
+  { bg: "#B08054", soft: "#F8EEE3" }, // nâu
+  { bg: "#5C9FDB", soft: "#E7F5FF" }, // xanh dương
+  { bg: "#6BB87D", soft: "#EBFBEE" }, // xanh lá
+  { bg: "#E08A4D", soft: "#FFF0E6" }, // cam
+  { bg: "#B571C7", soft: "#F8F0FC" }, // hồng tím
+  { bg: "#4FA3B3", soft: "#E3FAFC" }, // xanh cyan
+  { bg: "#C96C8C", soft: "#FFF0F6" }, // hồng đỏ
+  { bg: "#7E96E8", soft: "#EDF2FF" }, // xanh dương nhạt
+  { bg: "#5C9367", soft: "#EBFBEE" }, // xanh lá đậm
+  { bg: "#D19A4D", soft: "#FFF9DB" }, // cam vàng đậm
+  { bg: "#8770D1", soft: "#F3F0FF" }, // tím
+  { bg: "#4B9280", soft: "#E6FCF5" }, // xanh ngọc đậm
+  { bg: "#C2696B", soft: "#FFF5F5" }, // đỏ đậm
+  { bg: "#5590C4", soft: "#E7F5FF" }, // xanh dương đậm
+  { bg: "#9A5FA8", soft: "#F8F0FC" }, // tím đậm
+  { bg: "#B05777", soft: "#FFF0F6" }, // hồng đậm
+  { bg: "#8574C4", soft: "#F3F0FF" }, // chàm
 ];
 const START_HOUR = 7;
 const END_HOUR = 23;
@@ -247,6 +291,7 @@ const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + ST
 const START_MIN = START_HOUR * 60;
 const END_MIN = END_HOUR * 60;
 const SNAP = 15;
+const MIN_DURATION = 45;
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -286,6 +331,17 @@ function formatMoney(value, lang = "vi") {
   }).format(Math.round(value || 0));
 }
 
+function formatHours(minutes, lang = "vi") {
+  return new Intl.NumberFormat(lang === "vi" ? "vi-VN" : "en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format((Number(minutes) || 0) / 60);
+}
+
+function itemsById(items) {
+  return Object.fromEntries((items || []).map((item) => [item.id, item]));
+}
+
 const seedStudents = [
   { id: "s1", name: "Học sinh A", color: 0, hourlyRate: 200000 },
   { id: "s2", name: "Học sinh B", color: 1, hourlyRate: 200000 },
@@ -312,9 +368,22 @@ function loadSaved() {
 }
 const savedData = loadSaved();
 
+function pricingForStudent(session, student) {
+  const legacyRate = Number(session.studentRates?.[student?.id] ?? student?.hourlyRate) || 0;
+  const pricing = session.studentPricing?.[student?.id] || { mode: "hourly", amount: legacyRate };
+  return { mode: pricing.mode === "fixed" ? "fixed" : "hourly", amount: Math.max(0, Number(pricing.amount) || 0) };
+}
+
+function calculatedLessonFee(session, student) {
+  const pricing = pricingForStudent(session, student);
+  return pricing.mode === "fixed" ? pricing.amount : (session.duration / 60) * pricing.amount;
+}
+
 function lessonRecordFromTemplate(key, session, student, status) {
   const lessonDate = key.split("|")[0];
-  const hourlyRate = Number(session.studentRates?.[student?.id] ?? student?.hourlyRate) || 0;
+  const pricing = pricingForStudent(session, student);
+  const unitPrice = pricing.amount;
+  const calculatedAmount = calculatedLessonFee(session, student);
   return {
     key,
     date: lessonDate,
@@ -324,8 +393,11 @@ function lessonRecordFromTemplate(key, session, student, status) {
     start: session.start,
     duration: session.duration,
     note: session.note || "",
-    hourlyRate,
-    amount: status === "completed" ? (session.duration / 60) * hourlyRate : 0,
+    details: session.details || "",
+    pricingMode: pricing.mode === "fixed" ? "fixed" : "hourly",
+    unitPrice,
+    hourlyRate: unitPrice,
+    amount: status === "completed" ? calculatedAmount : 0,
     status,
   };
 }
@@ -337,12 +409,14 @@ function normalizeSession(session, students) {
     ? [session.studentId]
     : [];
   const studentRates = { ...(session.studentRates || {}) };
+  const studentPricing = { ...(session.studentPricing || {}) };
   studentIds.forEach((studentId) => {
     if (studentRates[studentId] == null) {
       studentRates[studentId] = Number((students || []).find((student) => student.id === studentId)?.hourlyRate) || 0;
     }
+    if (!studentPricing[studentId]) studentPricing[studentId] = { mode: "hourly", amount: Number(studentRates[studentId]) || 0 };
   });
-  return { effectiveFrom: "1970-01-01", ...session, studentId: studentIds[0] || null, studentIds, studentRates };
+  return { effectiveFrom: "1970-01-01", details: "", ...session, studentId: studentIds[0] || null, studentIds, studentRates, studentPricing };
 }
 
 function normalizeLessonRecords(records) {
@@ -351,7 +425,13 @@ function normalizeLessonRecords(records) {
     if (!record || !record.studentId || !record.key) return;
     const parts = record.key.split("|");
     const key = parts.length >= 3 ? record.key : `${record.key}|${record.studentId}`;
-    normalized[key] = { ...record, key };
+    normalized[key] = {
+      pricingMode: "hourly",
+      unitPrice: Number(record.hourlyRate) || 0,
+      details: "",
+      ...record,
+      key,
+    };
   });
   return normalized;
 }
@@ -372,6 +452,7 @@ function migrateLegacyAttendance(attendance, sessions, students) {
 
 // ---------- Cloud sync (optional, via the user's own Firebase project) ----------
 const SYNC_CFG_KEY = "tutor_schedule_sync_cfg";
+const FIREBASE_PERSISTENCE_APPS = new Set();
 function loadSyncCfg() {
   try {
     const raw = localStorage.getItem(SYNC_CFG_KEY);
@@ -400,6 +481,19 @@ function App() {
   const [sessions, setSessions] = useState(() =>
     (savedData?.sessions || seedSessions).map((session) => normalizeSession(session, savedData?.students || seedStudents))
   );
+  const [weekOverrides, setWeekOverrides] = useState(() => Object.fromEntries(
+    Object.entries(savedData?.weekOverrides || {}).map(([weekKey, items]) => [
+      weekKey,
+      (items || []).map((session) => normalizeSession(session, savedData?.students || seedStudents)),
+    ])
+  ));
+  const [defaultScheduleVersions, setDefaultScheduleVersions] = useState(() => Object.fromEntries(
+    Object.entries(savedData?.defaultScheduleVersions || {}).map(([weekKey, items]) => [
+      weekKey,
+      (items || []).map((session) => normalizeSession(session, savedData?.students || seedStudents)),
+    ])
+  ));
+  const [defaultScheduleFeedback, setDefaultScheduleFeedback] = useState("");
   const [filterId, setFilterId] = useState(null);
   const [rowHeight, setRowHeight] = useState(savedData?.rowHeight || 56);
   const [modal, setModal] = useState(null);
@@ -428,22 +522,60 @@ function App() {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncConfigText, setSyncConfigText] = useState("");
   const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [syncInputError, setSyncInputError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
 
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
   const suppressSessionEditRef = useRef(false);
+  const viewedWeekClosingRef = useRef(false);
   const dbRef = useRef(null);
+  const syncRootDocRef = useRef(null);
   const unsubRef = useRef(null);
-  const applyingRemoteRef = useRef(false);
+  const collectionUnsubsRef = useRef([]);
+  const collectionsReadyRef = useRef(false);
+  const collectionMigrationRef = useRef(false);
+  const lastSyncedLessonsRef = useRef({ attendance: {}, lessonRecords: {} });
+  const lastSyncedClosingsRef = useRef({});
+  const lastSyncedStateRef = useRef(null);
   const remoteReadyRef = useRef(false);
-  const pushTimerRef = useRef(null);
+  const recordsRefreshSessionIdsRef = useRef(new Set());
 
   useEffect(() => {
     const t2 = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t2);
   }, []);
+
+  // Refresh records only after an explicit class/student edit. Merely reopening a
+  // week must never apply the current recurring template to historical lessons.
+  useEffect(() => {
+    const editedIds = recordsRefreshSessionIdsRef.current;
+    if (!editedIds.size) return;
+    recordsRefreshSessionIdsRef.current = new Set();
+    setLessonRecords((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      Object.entries(previous).forEach(([key, record]) => {
+        if (weeklyClosings[weekKeyForDateString(record.date)]) return;
+        if (!editedIds.has(record.sessionId)) return;
+        const recordWeekKey = weekKeyForDateString(record.date);
+        const recordDefaultVersionKey = Object.keys(defaultScheduleVersions).filter((key) => key <= recordWeekKey).sort().pop();
+        const recordWeekSessions = weekOverrides[recordWeekKey] || (recordDefaultVersionKey ? defaultScheduleVersions[recordDefaultVersionKey] : sessions);
+        const session = recordWeekSessions.find((item) => item.id === record.sessionId);
+        const student = students.find((item) => item.id === record.studentId);
+        if (!session || !student || !session.studentIds.includes(student.id)) return;
+        const refreshed = lessonRecordFromTemplate(key, session, student, record.status);
+        const differs = ["studentName", "start", "duration", "note", "details", "pricingMode", "unitPrice", "hourlyRate", "amount", "status"]
+          .some((field) => refreshed[field] !== record[field]);
+        if (differs) {
+          next[key] = refreshed;
+          changed = true;
+        }
+      });
+      return changed ? next : previous;
+    });
+  }, [sessions, weekOverrides, defaultScheduleVersions, students]);
 
   // persist config to localStorage + clean the URL hash once read
   useEffect(() => {
@@ -464,11 +596,13 @@ function App() {
 
   // connect to Firestore whenever syncCfg changes
   useEffect(() => {
+    let cancelled = false;
     remoteReadyRef.current = false;
-    if (pushTimerRef.current) {
-      clearTimeout(pushTimerRef.current);
-      pushTimerRef.current = null;
-    }
+    collectionsReadyRef.current = false;
+    collectionMigrationRef.current = false;
+    collectionUnsubsRef.current.forEach((unsubscribe) => unsubscribe());
+    collectionUnsubsRef.current = [];
+    lastSyncedStateRef.current = null;
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
@@ -480,34 +614,173 @@ function App() {
     }
     setSyncStatus("connecting");
     try {
-      const appName = "tutor-schedule";
+      const appName = `tutor-schedule-${syncCfg.projectId}`;
       const existing = firebase.apps.find((a) => a.name === appName);
       const fbApp = existing || firebase.initializeApp(syncCfg, appName);
       const db = firebase.firestore(fbApp);
       dbRef.current = db;
-      const docRef = db.collection("schedules").doc(syncCfg.syncCode);
-      unsubRef.current = docRef.onSnapshot(
+      const attachSyncListener = () => {
+        if (cancelled || dbRef.current !== db) return;
+        const docRef = db.collection("schedules").doc(syncCfg.syncCode);
+        syncRootDocRef.current = docRef;
+        const attachCollections = () => {
+          if (cancelled || collectionsReadyRef.current) return;
+          collectionsReadyRef.current = true;
+          const lessonsUnsub = docRef.collection("lessons").onSnapshot((snapshot) => {
+            const nextAttendance = {};
+            const nextRecords = {};
+            snapshot.forEach((lessonDoc) => {
+              const lesson = lessonDoc.data();
+              if (!lesson.key) return;
+              nextAttendance[lesson.key] = lesson.status || "planned";
+              if (lesson.record) nextRecords[lesson.key] = lesson.record;
+            });
+            lastSyncedLessonsRef.current = { attendance: nextAttendance, lessonRecords: nextRecords };
+            setAttendance(nextAttendance);
+            setLessonRecords(nextRecords);
+          }, (error) => {
+            console.warn("Lesson sync error:", error);
+            setSyncStatus("error");
+          });
+          const closingsUnsub = docRef.collection("weeklyClosings").onSnapshot((snapshot) => {
+            const nextClosings = {};
+            snapshot.forEach((closingDoc) => { nextClosings[closingDoc.id] = closingDoc.data(); });
+            lastSyncedClosingsRef.current = nextClosings;
+            setWeeklyClosings(nextClosings);
+          }, (error) => {
+            console.warn("Weekly closing sync error:", error);
+            setSyncStatus("error");
+          });
+          collectionUnsubsRef.current = [lessonsUnsub, closingsUnsub];
+        };
+        const writeCollectionDocuments = async (lessonsAttendance, lessonsRecords, closings) => {
+          const operations = [];
+          const lessonKeys = new Set([...Object.keys(lessonsAttendance || {}), ...Object.keys(lessonsRecords || {})]);
+          lessonKeys.forEach((key) => operations.push({
+            ref: docRef.collection("lessons").doc(encodeURIComponent(key)),
+            data: { key, status: lessonsRecords?.[key]?.status || lessonsAttendance?.[key] || "planned", record: lessonsRecords?.[key] || null, revision: 1, updatedAt: Date.now() },
+          }));
+          Object.entries(closings || {}).forEach(([key, value]) => operations.push({
+            ref: docRef.collection("weeklyClosings").doc(key),
+            data: { ...value, revision: Number(value.revision || 0) + 1, updatedAt: Date.now() },
+          }));
+          for (let index = 0; index < operations.length; index += 400) {
+            const batch = db.batch();
+            operations.slice(index, index + 400).forEach((operation) => batch.set(operation.ref, operation.data, { merge: true }));
+            await batch.commit();
+          }
+        };
+        const migrateCollections = async (source, keepBackup) => {
+          if (collectionMigrationRef.current) return;
+          collectionMigrationRef.current = true;
+          try {
+            if (keepBackup) {
+              await docRef.collection("backups").doc("schema-v2").set({
+                attendance: source.attendance || {},
+                lessonRecords: source.lessonRecords || {},
+                weeklyClosings: source.weeklyClosings || {},
+                backedUpAt: Date.now(),
+              });
+            }
+            await writeCollectionDocuments(source.attendance || {}, source.lessonRecords || {}, source.weeklyClosings || {});
+            await docRef.update({
+              schemaVersion: 3,
+              studentsById: itemsById(source.students || students),
+              sessionsById: itemsById(source.sessions || sessions),
+              weekOverrides: source.weekOverrides || weekOverrides,
+              defaultScheduleVersions: source.defaultScheduleVersions || defaultScheduleVersions,
+              lang: source.lang || lang,
+              rowHeight: source.rowHeight || rowHeight,
+              attendance: firebase.firestore.FieldValue.delete(),
+              lessonRecords: firebase.firestore.FieldValue.delete(),
+              weeklyClosings: firebase.firestore.FieldValue.delete(),
+              migratedToCollectionsAt: Date.now(),
+            });
+          } catch (error) {
+            collectionMigrationRef.current = false;
+            console.warn("Collection migration failed:", error);
+            setSyncStatus("error");
+          }
+        };
+        unsubRef.current = docRef.onSnapshot(
         (snap) => {
           setSyncStatus("synced");
           if (snap.exists) {
             const data = snap.data();
-            applyingRemoteRef.current = true;
+            const schemaVersion = Number(data.schemaVersion || 1);
             remoteReadyRef.current = true;
-            if (data.students) setStudents(data.students);
-            if (data.sessions) setSessions(data.sessions.map((session) => normalizeSession(session, data.students || students)));
-            if (data.attendance) setAttendance(data.attendance);
-            if (data.lessonRecords) {
-              setLessonRecords(normalizeLessonRecords(data.lessonRecords));
-            } else if (data.attendance) {
-              setLessonRecords(migrateLegacyAttendance(data.attendance, data.sessions || sessions, data.students || students));
+            const remoteStudents = data.studentsById ? Object.values(data.studentsById) : (data.students || students);
+            const remoteSessions = (data.sessionsById ? Object.values(data.sessionsById) : (data.sessions || sessions))
+              .map((session) => normalizeSession(session, remoteStudents));
+            const remoteWeekOverrides = Object.fromEntries(Object.entries(data.weekOverrides || {}).map(([weekKey, items]) => [
+              weekKey,
+              (items || []).map((session) => normalizeSession(session, remoteStudents)),
+            ]));
+            const remoteDefaultScheduleVersions = Object.fromEntries(Object.entries(data.defaultScheduleVersions || {}).map(([weekKey, items]) => [
+              weekKey,
+              (items || []).map((session) => normalizeSession(session, remoteStudents)),
+            ]));
+            const remoteAttendance = schemaVersion >= 3 ? attendance : (data.attendance || {});
+            const remoteLessonRecords = data.lessonRecords
+              ? normalizeLessonRecords(data.lessonRecords)
+              : (schemaVersion >= 3 ? lessonRecords : migrateLegacyAttendance(remoteAttendance, remoteSessions, remoteStudents));
+            const remoteWeeklyClosings = schemaVersion >= 3 ? weeklyClosings : (data.weeklyClosings || {});
+            const remoteLang = data.lang || lang;
+            const remoteRowHeight = data.rowHeight || rowHeight;
+            const remoteState = {
+              students: remoteStudents,
+              sessions: remoteSessions,
+              weekOverrides: remoteWeekOverrides,
+              defaultScheduleVersions: remoteDefaultScheduleVersions,
+              attendance: remoteAttendance,
+              lessonRecords: remoteLessonRecords,
+              weeklyClosings: remoteWeeklyClosings,
+              lang: remoteLang,
+              rowHeight: remoteRowHeight,
+            };
+            lastSyncedStateRef.current = remoteState;
+            setStudents(remoteStudents);
+            setSessions(remoteSessions);
+            setWeekOverrides(remoteWeekOverrides);
+            setDefaultScheduleVersions(remoteDefaultScheduleVersions);
+            if (schemaVersion < 3) {
+              setAttendance(remoteAttendance);
+              setLessonRecords(remoteLessonRecords);
+              setWeeklyClosings(remoteWeeklyClosings);
             }
-            if (data.weeklyClosings) setWeeklyClosings(data.weeklyClosings);
-            if (data.lang) setLang(data.lang);
-            if (data.rowHeight) setRowHeight(data.rowHeight);
+            setLang(remoteLang);
+            setRowHeight(remoteRowHeight);
+            if (schemaVersion < 3) {
+              migrateCollections({
+                students: remoteStudents,
+                sessions: remoteSessions,
+                weekOverrides: remoteWeekOverrides,
+                defaultScheduleVersions: remoteDefaultScheduleVersions,
+                attendance: remoteAttendance,
+                lessonRecords: remoteLessonRecords,
+                weeklyClosings: remoteWeeklyClosings,
+                lang: remoteLang,
+                rowHeight: remoteRowHeight,
+              }, true);
+            } else {
+              attachCollections();
+            }
           } else {
-            docRef
-              .set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() })
+            if (collectionMigrationRef.current) return;
+            collectionMigrationRef.current = true;
+            writeCollectionDocuments(attendance, lessonRecords, weeklyClosings)
+              .then(() => docRef.set({
+                schemaVersion: 3,
+                studentsById: itemsById(students),
+                sessionsById: itemsById(sessions),
+                weekOverrides,
+                defaultScheduleVersions,
+                lang,
+                rowHeight,
+                updatedAt: Date.now(),
+              }))
               .catch((e) => {
+                collectionMigrationRef.current = false;
                 console.warn("Initial sync failed:", e);
                 setSyncStatus("error");
               });
@@ -517,43 +790,135 @@ function App() {
           console.warn("Sync error:", err);
           setSyncStatus("error");
         }
-      );
+        );
+      };
+      let persistenceReady = Promise.resolve();
+      if (!FIREBASE_PERSISTENCE_APPS.has(appName)) {
+        FIREBASE_PERSISTENCE_APPS.add(appName);
+        persistenceReady = db.enablePersistence({ synchronizeTabs: true }).catch((error) => {
+          if (error?.code !== "failed-precondition" && error?.code !== "unimplemented") {
+            console.warn("Offline persistence unavailable:", error);
+          }
+        });
+      }
+      persistenceReady.then(attachSyncListener);
     } catch (e) {
       console.warn("Could not connect sync:", e);
       setSyncStatus("error");
     }
     return () => {
+      cancelled = true;
       if (unsubRef.current) unsubRef.current();
+      collectionUnsubsRef.current.forEach((unsubscribe) => unsubscribe());
+      collectionUnsubsRef.current = [];
     };
     // eslint-disable-next-line
   }, [syncCfg?.apiKey, syncCfg?.projectId, syncCfg?.syncCode]);
 
-  // save locally always; push to cloud (debounced) unless the change just arrived from the cloud
+  // Save locally and update only changed Firebase fields. This prevents one browser
+  // from replacing unrelated students, classes or attendance written by another.
   useEffect(() => {
+    const payload = { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, lang, rowHeight };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.warn("Could not save schedule:", e);
     }
-    if (applyingRemoteRef.current) {
-      applyingRemoteRef.current = false;
-      return;
-    }
-    if (dbRef.current && syncCfg?.syncCode && remoteReadyRef.current) {
-      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
-      pushTimerRef.current = setTimeout(() => {
-        pushTimerRef.current = null;
-        dbRef.current
-          .collection("schedules")
-          .doc(syncCfg.syncCode)
-          .set({ students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, updatedAt: Date.now() }, { merge: true })
-          .catch((e) => {
-            console.warn("Push failed:", e);
-            setSyncStatus("error");
-          });
-      }, 500);
-    }
-  }, [students, sessions, attendance, lessonRecords, weeklyClosings, lang, rowHeight]);
+    const previous = lastSyncedStateRef.current;
+    if (!dbRef.current || !syncCfg?.syncCode || !remoteReadyRef.current || !previous) return;
+    const updates = {};
+    const addMapChanges = (field, previousMap, nextMap) => {
+      const ids = new Set([...Object.keys(previousMap || {}), ...Object.keys(nextMap || {})]);
+      ids.forEach((id) => {
+        const before = previousMap?.[id];
+        const after = nextMap?.[id];
+        if (JSON.stringify(before) === JSON.stringify(after)) return;
+        updates[`${field}.${id}`] = after === undefined ? firebase.firestore.FieldValue.delete() : after;
+      });
+    };
+    addMapChanges("studentsById", itemsById(previous.students), itemsById(students));
+    addMapChanges("sessionsById", itemsById(previous.sessions), itemsById(sessions));
+    addMapChanges("weekOverrides", previous.weekOverrides || {}, weekOverrides);
+    addMapChanges("defaultScheduleVersions", previous.defaultScheduleVersions || {}, defaultScheduleVersions);
+    if (previous.lang !== lang) updates.lang = lang;
+    if (previous.rowHeight !== rowHeight) updates.rowHeight = rowHeight;
+    if (!Object.keys(updates).length) return;
+    updates.schemaVersion = 3;
+    updates.updatedAt = Date.now();
+    lastSyncedStateRef.current = payload;
+    setSyncStatus("connecting");
+    dbRef.current
+      .collection("schedules")
+      .doc(syncCfg.syncCode)
+      .update(updates)
+      .catch((error) => {
+        lastSyncedStateRef.current = previous;
+        console.warn("Atomic sync failed:", error);
+        setSyncStatus("error");
+      });
+  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, lang, rowHeight]);
+
+  useEffect(() => {
+    const docRef = syncRootDocRef.current;
+    if (!docRef || !collectionsReadyRef.current) return;
+    const previous = lastSyncedLessonsRef.current;
+    const keys = new Set([
+      ...Object.keys(previous.attendance || {}),
+      ...Object.keys(previous.lessonRecords || {}),
+      ...Object.keys(attendance || {}),
+      ...Object.keys(lessonRecords || {}),
+    ]);
+    const changedKeys = Array.from(keys).filter((key) =>
+      previous.attendance?.[key] !== attendance[key] ||
+      JSON.stringify(previous.lessonRecords?.[key]) !== JSON.stringify(lessonRecords[key])
+    );
+    if (!changedKeys.length) return;
+    lastSyncedLessonsRef.current = { attendance, lessonRecords };
+    setSyncStatus("connecting");
+    Promise.all(changedKeys.map((key) => {
+      const lessonRef = docRef.collection("lessons").doc(encodeURIComponent(key));
+      if (attendance[key] === undefined && lessonRecords[key] === undefined) return lessonRef.delete();
+      return dbRef.current.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(lessonRef);
+        const revision = snapshot.exists ? Number(snapshot.data().revision || 0) + 1 : 1;
+        transaction.set(lessonRef, {
+          key,
+          status: lessonRecords[key]?.status || attendance[key] || "planned",
+          record: lessonRecords[key] || null,
+          revision,
+          updatedAt: Date.now(),
+        });
+      });
+    })).catch((error) => {
+      lastSyncedLessonsRef.current = previous;
+      console.warn("Lesson write failed:", error);
+      setSyncStatus("error");
+    });
+  }, [attendance, lessonRecords]);
+
+  useEffect(() => {
+    const docRef = syncRootDocRef.current;
+    if (!docRef || !collectionsReadyRef.current) return;
+    const previous = lastSyncedClosingsRef.current;
+    const keys = new Set([...Object.keys(previous || {}), ...Object.keys(weeklyClosings || {})]);
+    const changedKeys = Array.from(keys).filter((key) => JSON.stringify(previous[key]) !== JSON.stringify(weeklyClosings[key]));
+    if (!changedKeys.length) return;
+    lastSyncedClosingsRef.current = weeklyClosings;
+    setSyncStatus("connecting");
+    Promise.all(changedKeys.map((key) => {
+      const closingRef = docRef.collection("weeklyClosings").doc(key);
+      if (weeklyClosings[key] === undefined) return closingRef.delete();
+      return dbRef.current.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(closingRef);
+        const revision = snapshot.exists ? Number(snapshot.data().revision || 0) + 1 : 1;
+        transaction.set(closingRef, { ...weeklyClosings[key], revision, updatedAt: Date.now() });
+      });
+    })).catch((error) => {
+      lastSyncedClosingsRef.current = previous;
+      console.warn("Weekly closing write failed:", error);
+      setSyncStatus("error");
+    });
+  }, [weeklyClosings]);
 
   function connectSync() {
     try {
@@ -563,10 +928,15 @@ function App() {
           .replace(/'/g, '"')
       );
       const code = syncCodeInput.trim() || randomSyncCode();
+      if (!/^[A-Za-z0-9_-]{3,80}$/.test(code)) {
+        setSyncInputError(t.invalidSyncCode);
+        return;
+      }
+      setSyncInputError("");
       setSyncCfg({ ...cfg, syncCode: code });
       setSyncModalOpen(false);
     } catch (e) {
-      alert(lang === "vi" ? "Cấu hình Firebase không hợp lệ." : "Invalid Firebase config.");
+      setSyncInputError(t.invalidFirebaseConfig);
     }
   }
 
@@ -609,6 +979,14 @@ function App() {
   function saveStudentModal() {
     const name = studentModal.name.trim();
     if (!name) return;
+    const latestStudent = students.find((student) => student.id === studentModal.id);
+    if (studentModal._originalSignature && JSON.stringify(latestStudent) !== studentModal._originalSignature) {
+      setStudentModal({ ...studentModal, error: t.conflictError });
+      return;
+    }
+    [...sessions, ...Object.values(weekOverrides).flat(), ...Object.values(defaultScheduleVersions).flat()]
+      .filter((session) => session.studentIds.includes(studentModal.id))
+      .forEach((session) => recordsRefreshSessionIdsRef.current.add(session.id));
     setStudents((prev) =>
       prev.map((s) =>
         s.id === studentModal.id
@@ -626,13 +1004,44 @@ function App() {
         .map((session) => {
           const studentIds = session.studentIds.filter((studentId) => studentId !== id);
           const studentRates = { ...session.studentRates };
+          const studentPricing = { ...session.studentPricing };
           delete studentRates[id];
-          return { ...session, studentIds, studentRates, studentId: studentIds[0] || null };
+          delete studentPricing[id];
+          return { ...session, studentIds, studentRates, studentPricing, studentId: studentIds[0] || null };
         })
         .filter((session) => session.studentIds.length > 0)
     );
+    setWeekOverrides((previous) => Object.fromEntries(Object.entries(previous).map(([weekKey, items]) => [
+      weekKey,
+      items.map((session) => {
+        const studentIds = session.studentIds.filter((studentId) => studentId !== id);
+        const studentRates = { ...session.studentRates };
+        const studentPricing = { ...session.studentPricing };
+        delete studentRates[id];
+        delete studentPricing[id];
+        return { ...session, studentIds, studentRates, studentPricing, studentId: studentIds[0] || null };
+      }).filter((session) => session.studentIds.length > 0),
+    ])));
+    setDefaultScheduleVersions((previous) => Object.fromEntries(Object.entries(previous).map(([weekKey, items]) => [
+      weekKey,
+      items.map((session) => {
+        const studentIds = session.studentIds.filter((studentId) => studentId !== id);
+        const studentRates = { ...session.studentRates };
+        const studentPricing = { ...session.studentPricing };
+        delete studentRates[id];
+        delete studentPricing[id];
+        return { ...session, studentIds, studentRates, studentPricing, studentId: studentIds[0] || null };
+      }).filter((session) => session.studentIds.length > 0),
+    ])));
     if (filterId === id) setFilterId(null);
     setConfirmDeleteStudent(null);
+  }
+
+  function updateViewedWeekSessions(updater) {
+    setWeekOverrides((previous) => {
+      const base = previous[viewWeekKey] || activeSessionsForView;
+      return { ...previous, [viewWeekKey]: updater(base.map((session) => normalizeSession({ ...session }, students))) };
+    });
   }
 
   function openAddModal(day, startMin) {
@@ -647,40 +1056,86 @@ function App() {
       studentId: initialStudentId,
       studentIds: [initialStudentId],
       studentRates: { [initialStudentId]: Number(initialStudent?.hourlyRate) || 0 },
+      studentPricing: { [initialStudentId]: { mode: "hourly", amount: Number(initialStudent?.hourlyRate) || 0 } },
       day,
-      start: clamp(Math.round(startMin / SNAP) * SNAP, START_MIN, END_MIN - 30),
+      start: clamp(Math.round(startMin / SNAP) * SNAP, START_MIN, END_MIN - MIN_DURATION),
       duration: 60,
       note: "",
+      details: "",
     });
   }
 
   function openEditModal(session) {
-    setModal({ mode: "edit", id: session.id, ...session });
+    setModal({ mode: "edit", id: session.id, ...session, duration: Math.max(MIN_DURATION, session.duration), _originalSignature: JSON.stringify(session) });
+  }
+
+  function openHistoricalModal(session) {
+    setModal({
+      mode: "history",
+      id: session._sourceSessionId,
+      occurrenceDate: session._occurrenceDate,
+      studentId: session.studentId,
+      studentIds: [...session.studentIds],
+      studentRates: { ...session.studentRates },
+      studentPricing: { ...session.studentPricing },
+      historicalMembers: session._members || [],
+      day: session.day,
+      start: session.start,
+      duration: session.duration,
+      note: session.note || "",
+      details: session.details || "",
+    });
   }
 
   function saveModal() {
-    if (modal.start + modal.duration > END_MIN) return;
+    if (modal.duration < MIN_DURATION || modal.start + modal.duration > END_MIN) return;
     if (!modal.studentIds?.length) return;
+    if (modal.mode === "edit") {
+      const latestSession = (weekOverrides[viewWeekKey] || activeSessionsForView).find((session) => session.id === modal.id);
+      if (modal._originalSignature && JSON.stringify(latestSession) !== modal._originalSignature) {
+        setModal({ ...modal, error: t.conflictError });
+        return;
+      }
+    }
     const sessionValues = {
       studentId: modal.studentIds[0],
       studentIds: modal.studentIds,
       studentRates: modal.studentRates,
+      studentPricing: modal.studentPricing,
       day: modal.day,
       start: modal.start,
       duration: modal.duration,
       note: modal.note,
+      details: modal.details || "",
     };
+    if (modal.mode === "history") {
+      const baseKey = `${modal.occurrenceDate}|${modal.id}`;
+      setLessonRecords((previous) => {
+        const next = { ...previous };
+        modal.studentIds.forEach((studentId) => {
+          const key = `${baseKey}|${studentId}`;
+          const existing = previous[key];
+          const student = students.find((item) => item.id === studentId);
+          if (!existing || !student) return;
+          next[key] = lessonRecordFromTemplate(key, { id: modal.id, ...sessionValues }, student, existing.status);
+        });
+        return next;
+      });
+      setModal(null);
+      return;
+    }
     if (modal.mode === "add") {
-      setSessions((prev) => [
+      updateViewedWeekSessions((prev) => [
         ...prev,
         {
           id: uid(),
           ...sessionValues,
-          effectiveFrom: dateKey(new Date()),
+          effectiveFrom: viewWeekKey,
         },
       ]);
     } else {
-      setSessions((prev) =>
+      recordsRefreshSessionIdsRef.current.add(modal.id);
+      updateViewedWeekSessions((prev) =>
         prev.map((s) =>
           s.id === modal.id
             ? { ...s, ...sessionValues }
@@ -692,13 +1147,21 @@ function App() {
   }
 
   function deleteModalSession() {
-    setSessions((prev) => prev.filter((s) => s.id !== modal.id));
+    if (modal.mode === "history") {
+      const prefix = `${modal.occurrenceDate}|${modal.id}|`;
+      setAttendance((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(prefix))));
+      setLessonRecords((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(prefix))));
+      setModal(null);
+      return;
+    }
+    updateViewedWeekSessions((prev) => prev.filter((s) => s.id !== modal.id));
     setModal(null);
   }
 
   const onSessionMouseDown = useCallback(
     (e, session) => {
       e.stopPropagation();
+      if (viewedWeekClosingRef.current) return;
       if (e.button !== 0) return;
       const rect = gridRef.current.getBoundingClientRect();
       dragState.current = {
@@ -729,14 +1192,14 @@ function App() {
 
       const deltaMinutes = (dy / rowHeight) * 60;
       let newStart = Math.round((ds.origStart + deltaMinutes) / SNAP) * SNAP;
-      newStart = clamp(newStart, START_MIN, END_MIN - 15);
+      newStart = clamp(newStart, START_MIN, END_MIN - MIN_DURATION);
 
       const dayIndex = clamp(Math.floor((e.clientX - ds.rect.left) / ds.colWidth), 0, 6);
 
-      setSessions((prev) =>
+      updateViewedWeekSessions((prev) =>
         prev.map((s) =>
           s.id === ds.id
-            ? { ...s, day: dayIndex, start: clamp(newStart, START_MIN, END_MIN - s.duration) }
+            ? (recordsRefreshSessionIdsRef.current.add(s.id), { ...s, day: dayIndex, start: clamp(newStart, START_MIN, END_MIN - s.duration) })
             : s
         )
       );
@@ -759,6 +1222,7 @@ function App() {
   const resizeState = useRef(null);
   const onResizeMouseDown = useCallback(
     (e, session) => {
+      if (viewedWeekClosingRef.current) return;
       e.stopPropagation();
       e.preventDefault();
       resizeState.current = { id: session.id, startY: e.clientY, origDuration: session.duration };
@@ -774,10 +1238,12 @@ function App() {
       const dy = e.clientY - rs.startY;
       const deltaMinutes = (dy / rowHeight) * 60;
       let newDuration = Math.round((rs.origDuration + deltaMinutes) / SNAP) * SNAP;
-      newDuration = clamp(newDuration, 15, END_MIN - START_MIN);
-      setSessions((prev) =>
+      newDuration = clamp(newDuration, MIN_DURATION, END_MIN - START_MIN);
+      updateViewedWeekSessions((prev) =>
         prev.map((s) =>
-          s.id === rs.id ? { ...s, duration: clamp(newDuration, 15, END_MIN - s.start) } : s
+          s.id === rs.id
+            ? (recordsRefreshSessionIdsRef.current.add(s.id), { ...s, duration: clamp(newDuration, MIN_DURATION, END_MIN - s.start) })
+            : s
         )
       );
     },
@@ -790,6 +1256,7 @@ function App() {
   }, [onResizeMove]);
 
   function onColumnClick(e, dayIndex) {
+    if (viewedWeekClosing) return;
     if (dragState.current && dragState.current.moved) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
@@ -805,24 +1272,115 @@ function App() {
   const viewWeekKey = dateKey(viewWeekStart);
   const isCurrentWeek = viewWeekKey === dateKey(mondayOfCurrentWeek);
   const viewedWeekClosing = weeklyClosings[viewWeekKey];
+  viewedWeekClosingRef.current = Boolean(viewedWeekClosing);
   const viewWeekDates = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(viewWeekStart);
     date.setDate(viewWeekStart.getDate() + index);
     return date;
   });
   function currentWeekOccurrenceKey(session) {
+    if (session._occurrenceDate) return `${session._occurrenceDate}|${session._sourceSessionId}`;
     const lessonDate = new Date(viewWeekStart);
     lessonDate.setDate(viewWeekStart.getDate() + session.day);
     return `${dateKey(lessonDate)}|${session.id}`;
   }
 
   const studentById = (id) => students.find((s) => s.id === id);
+  const scheduleStudentById = (id) => (viewedWeekClosing?.studentsSnapshot || students).find((s) => s.id === id);
   const colorFor = (student) => STUDENT_COLORS[(student?.color ?? 0) % STUDENT_COLORS.length];
 
-  const visibleSessions = sessions.filter((s) => !filterId || s.studentIds.includes(filterId));
+  const applicableDefaultVersionKey = Object.keys(defaultScheduleVersions)
+    .filter((weekKey) => weekKey <= viewWeekKey)
+    .sort()
+    .pop();
+  const versionedDefaultSessions = applicableDefaultVersionKey ? defaultScheduleVersions[applicableDefaultVersionKey] : sessions;
+  const defaultSessionsForView = versionedDefaultSessions.filter((session) => {
+    const occurrenceDate = dateKey(viewWeekDates[session.day]);
+    return occurrenceDate >= (session.effectiveFrom || "1970-01-01");
+  });
+  const activeSessionsForView = weekOverrides[viewWeekKey] || defaultSessionsForView;
+  function setViewedWeekAsDefault() {
+    const sourceSessions = viewedWeekClosing?.sessionsSnapshot || activeSessionsForView;
+    const nextDefault = sourceSessions.map((session) => normalizeSession({
+      ...session,
+      effectiveFrom: viewWeekKey,
+      studentIds: [...session.studentIds],
+      studentRates: { ...session.studentRates },
+      studentPricing: { ...session.studentPricing },
+    }, students));
+    setDefaultScheduleVersions((previous) => ({ ...previous, [viewWeekKey]: nextDefault }));
+    setWeekOverrides((previous) => {
+      const next = { ...previous };
+      delete next[viewWeekKey];
+      return next;
+    });
+    setDefaultScheduleFeedback(t.defaultScheduleSet);
+    window.setTimeout(() => setDefaultScheduleFeedback(""), 3500);
+  }
+  const scheduleSessions = viewedWeekClosing?.sessionsSnapshot || activeSessionsForView;
+  const historicalGroupsForView = new Map();
+  Object.values(lessonRecords).forEach((record) => {
+    if (record.date < viewWeekKey || record.date > dateKey(viewWeekDates[6])) return;
+    const groupKey = `${record.date}|${record.sessionId}`;
+    if (!historicalGroupsForView.has(groupKey)) historicalGroupsForView.set(groupKey, []);
+    historicalGroupsForView.get(groupKey).push(record);
+  });
+  const historicalSessionsForView = Array.from(historicalGroupsForView.entries()).map(([groupKey, records]) => {
+    const first = records[0];
+    const occurrenceDate = new Date(`${first.date}T00:00:00`);
+    return {
+      id: `history-${groupKey}`,
+      _sourceSessionId: first.sessionId,
+      _occurrenceDate: first.date,
+      _historical: true,
+      day: Math.round((occurrenceDate - viewWeekStart) / 86400000),
+      start: first.start,
+      duration: first.duration,
+      note: first.note,
+      details: first.details || "",
+      studentId: first.studentId,
+      studentIds: records.map((record) => record.studentId),
+      studentRates: Object.fromEntries(records.map((record) => [record.studentId, record.hourlyRate])),
+      studentPricing: Object.fromEntries(records.map((record) => [record.studentId, {
+        mode: record.pricingMode || "hourly",
+        amount: Number(record.unitPrice ?? record.hourlyRate) || 0,
+      }])),
+      _members: records.map((record) => students.find((student) => student.id === record.studentId) || ({
+        id: record.studentId,
+        name: record.studentName,
+        hourlyRate: record.hourlyRate,
+        color: 0,
+      })),
+    };
+  });
+  const historicalOccurrenceKeys = new Set(historicalSessionsForView.map((session) => `${session._occurrenceDate}|${session._sourceSessionId}`));
+  const templateSessionsWithoutRecordedOccurrence = scheduleSessions.filter((session) => {
+    const occurrenceDate = dateKey(viewWeekDates[session.day]);
+    return !historicalOccurrenceKeys.has(`${occurrenceDate}|${session.id}`);
+  });
+  const visibleSessions = [...templateSessionsWithoutRecordedOccurrence, ...historicalSessionsForView]
+    .filter((s) => !filterId || s.studentIds.includes(filterId));
+  function overlapStyleFor(session) {
+    const peers = visibleSessions
+      .filter((other) => other.day === session.day && other.start < session.start + session.duration && session.start < other.start + other.duration)
+      .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+    if (peers.length <= 1) return { left: 2, right: 2 };
+    const index = Math.max(0, peers.findIndex((peer) => peer.id === session.id));
+    return {
+      left: `calc(${(index * 100) / peers.length}% + 2px)`,
+      width: `calc(${100 / peers.length}% - 4px)`,
+    };
+  }
+  const modalHasOverlap = Boolean(modal && activeSessionsForView.some((session) =>
+    session.id !== modal.id &&
+    session.day === modal.day &&
+    session.start < modal.start + modal.duration &&
+    modal.start < session.start + session.duration
+  ));
 
   function updateLessonStatus(key, session, student, status) {
     if (weeklyClosings[weekKeyForDateString(key.slice(0, 10))]) return;
+    const updatedRecord = status === "planned" ? null : lessonRecordFromTemplate(key, session, student, status);
     setAttendance((prev) => ({ ...prev, [key]: status }));
     setLessonRecords((prev) => {
       if (status === "planned") {
@@ -830,7 +1388,7 @@ function App() {
         delete next[key];
         return next;
       }
-      return { ...prev, [key]: lessonRecordFromTemplate(key, session, student, status) };
+      return { ...prev, [key]: updatedRecord };
     });
   }
 
@@ -848,6 +1406,15 @@ function App() {
   };
 
   function finishCloseWeek() {
+    if (closeWeekModal?.mode === "reopen") {
+      setWeeklyClosings((prev) => {
+        const next = { ...prev };
+        delete next[viewWeekKey];
+        return next;
+      });
+      setCloseWeekModal(null);
+      return;
+    }
     setWeeklyClosings((prev) => ({
       ...prev,
       [viewWeekKey]: {
@@ -856,6 +1423,13 @@ function App() {
         sessions: viewWeekSummary.sessions,
         minutes: viewWeekSummary.minutes,
         amount: viewWeekSummary.amount,
+        sessionsSnapshot: activeSessionsForView.map((session) => ({
+          ...session,
+          studentIds: [...session.studentIds],
+          studentRates: { ...session.studentRates },
+          studentPricing: Object.fromEntries(Object.entries(session.studentPricing || {}).map(([id, pricing]) => [id, { ...pricing }])),
+        })),
+        studentsSnapshot: students.map((student) => ({ ...student })),
         closedAt: Date.now(),
       },
     }));
@@ -885,8 +1459,12 @@ function App() {
         start: record.start,
         duration: record.duration,
         note: record.note,
+        details: record.details || "",
+        studentPricing: { [record.studentId]: { mode: record.pricingMode || "hourly", amount: Number(record.unitPrice ?? record.hourlyRate) || 0 } },
       },
-      student: { ...student, name: record.studentName, hourlyRate: record.hourlyRate },
+      student: { ...student, name: record.studentName, hourlyRate: Number(record.unitPrice ?? record.hourlyRate) || 0 },
+      pricingMode: record.pricingMode || "hourly",
+      unitPrice: Number(record.unitPrice ?? record.hourlyRate) || 0,
       status: record.status,
       amount: record.amount,
     };
@@ -897,7 +1475,13 @@ function App() {
       const date = new Date(payrollYear, payrollMonthNumber - 1, dayOfMonth);
       const weekday = (date.getDay() + 6) % 7;
       const lessonDate = dateKey(date);
-      sessions
+      const occurrenceWeekKey = weekKeyForDateString(lessonDate);
+      const closingForDate = weeklyClosings[occurrenceWeekKey];
+      const occurrenceDefaultVersionKey = Object.keys(defaultScheduleVersions).filter((key) => key <= occurrenceWeekKey).sort().pop();
+      const occurrenceDefaultSessions = occurrenceDefaultVersionKey ? defaultScheduleVersions[occurrenceDefaultVersionKey] : sessions;
+      const sessionsForDate = closingForDate?.sessionsSnapshot || weekOverrides[occurrenceWeekKey] || occurrenceDefaultSessions;
+      const studentsForDate = closingForDate?.studentsSnapshot || students;
+      sessionsForDate
         .filter((session) => session.day === weekday && lessonDate >= (session.effectiveFrom || "1970-01-01"))
         .forEach((session) => {
           session.studentIds.forEach((studentId) => {
@@ -908,15 +1492,17 @@ function App() {
               payrollOccurrences.push(occurrenceFromRecord(storedRecord));
               return;
             }
-            const student = studentById(studentId);
+            const student = studentsForDate.find((item) => item.id === studentId);
             const status = attendance[key] || "planned";
-            const hourlyRate = Number(session.studentRates?.[studentId] ?? student?.hourlyRate) || 0;
-            const amount = status === "completed" ? (session.duration / 60) * hourlyRate : 0;
+            const pricing = pricingForStudent(session, student);
+            const amount = status === "completed" ? calculatedLessonFee(session, student) : 0;
             payrollOccurrences.push({
               key,
               date,
               session: { ...session, studentId },
-              student: student ? { ...student, hourlyRate } : null,
+              student: student ? { ...student, hourlyRate: pricing.amount } : null,
+              pricingMode: pricing.mode,
+              unitPrice: pricing.amount,
               status,
               amount,
             });
@@ -940,14 +1526,21 @@ function App() {
   const payrollRows = Array.from(payrollStudents.values()).map((student) => {
     const rows = payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed");
     const rates = [...new Set(rows.map((item) => Number(item.student?.hourlyRate) || 0))];
+    const priceDescriptions = [...new Set(rows.map((item) => `${item.pricingMode || "hourly"}|${Number(item.unitPrice ?? item.student?.hourlyRate) || 0}`))];
     return {
       student,
       sessions: rows.length,
       minutes: rows.reduce((sum, item) => sum + item.session.duration, 0),
       amount: rows.reduce((sum, item) => sum + item.amount, 0),
       hourlyRate: rates.length === 1 ? rates[0] : null,
+      priceDescription: priceDescriptions.length === 1 ? priceDescriptions[0] : null,
     };
   }).filter((row) => row.sessions > 0);
+  const attendanceDetailRows = Array.from(payrollStudents.values()).map((student) => ({
+    student,
+    attended: payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed"),
+    absent: payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "cancelled"),
+  })).filter((row) => row.attended.length || row.absent.length);
   const payrollTotal = payrollRows.reduce((sum, row) => sum + row.amount, 0);
 
   return (
@@ -982,13 +1575,21 @@ function App() {
             ><ChevronRight size={16} /></button>
           </div>
           <button
-            onClick={() => !viewedWeekClosing && setCloseWeekModal({ confirmed: false })}
-            disabled={Boolean(viewedWeekClosing)}
+            onClick={setViewedWeekAsDefault}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition hover:opacity-80"
+            style={{ background: "#4C6EF5", color: "#FFFFFF" }}
+            title={defaultScheduleFeedback || t.setDefaultSchedule}
+          >
+            <Clock3 size={16} />
+            <span className="hidden sm:inline">{defaultScheduleFeedback || t.setDefaultSchedule}</span>
+          </button>
+          <button
+            onClick={() => setCloseWeekModal({ confirmed: false, mode: viewedWeekClosing ? "reopen" : "close" })}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition"
-            style={{ background: viewedWeekClosing ? "#495A78" : "#F59F00", color: "#FFFFFF", cursor: viewedWeekClosing ? "not-allowed" : "pointer" }}
+            style={{ background: viewedWeekClosing ? "#495A78" : "#F59F00", color: "#FFFFFF", cursor: "pointer" }}
           >
             <Check size={16} />
-            <span className="hidden sm:inline">{viewedWeekClosing ? t.weekClosed : t.closeWeek}</span>
+            <span className="hidden sm:inline">{viewedWeekClosing ? t.reopenWeek : t.closeWeek}</span>
           </button>
           <button
             onClick={() => setPayrollOpen(true)}
@@ -1003,6 +1604,7 @@ function App() {
             onClick={() => {
               setSyncConfigText("");
               setSyncCodeInput(syncCfg?.syncCode || "");
+              setSyncInputError("");
               setSyncModalOpen(true);
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
@@ -1100,7 +1702,7 @@ function App() {
                       title={t.editStudent}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setStudentModal({ ...s, hourlyRate: s.hourlyRate || 0 });
+                        setStudentModal({ ...s, hourlyRate: s.hourlyRate || 0, _originalSignature: JSON.stringify(s) });
                       }}
                     >
                       {Number(s.hourlyRate || 0).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
@@ -1222,7 +1824,7 @@ function App() {
                 {HOURS.map((h) => (
                   <div
                     key={h}
-                    className="absolute right-2 text-[11px] font-mono"
+                    className="absolute right-2 text-[15px] font-mono"
                     style={{ top: (h - START_HOUR) * rowHeight - 6 }}
                   >
                     {String(h).padStart(2, "0")}:00
@@ -1260,7 +1862,7 @@ function App() {
                     {visibleSessions
                       .filter((s) => s.day === dayIndex)
                       .map((s) => {
-                        const members = s.studentIds.map(studentById).filter(Boolean);
+                        const members = s._members || s.studentIds.map(scheduleStudentById).filter(Boolean);
                         const student = members[0];
                         const c = colorFor(student);
                         const top = ((s.start - START_MIN) / 60) * rowHeight;
@@ -1278,19 +1880,24 @@ function App() {
                         return (
                           <div
                             key={s.id}
-                            onMouseDown={(e) => onSessionMouseDown(e, s)}
+                            title={[s.note, s.details].filter(Boolean).join(" — ")}
+                            onMouseDown={(e) => !s._historical && onSessionMouseDown(e, s)}
                             onClick={(e) => e.stopPropagation()}
                             onDoubleClick={(e) => {
                               e.stopPropagation();
-                              if (!suppressSessionEditRef.current) openEditModal(s);
+                              if (!viewedWeekClosing && !suppressSessionEditRef.current) {
+                                if (s._historical) openHistoricalModal(s);
+                                else openEditModal(s);
+                              }
                             }}
-                            className="absolute left-0.5 right-0.5 rounded-md pl-1.5 pr-7 py-1 overflow-hidden select-none shadow-sm"
+                            className="absolute rounded-md pl-1.5 pr-7 py-1 overflow-hidden select-none shadow-sm"
                             style={{
+                              ...overlapStyleFor(s),
                               top,
                               height,
                               background: c.bg,
                               color: "#fff",
-                              cursor: "grab",
+                              cursor: viewedWeekClosing ? "default" : (s._historical ? "pointer" : "grab"),
                               zIndex: 5,
                             }}
                           >
@@ -1306,10 +1913,10 @@ function App() {
                                 if (viewedWeekClosing) return;
                                 setAttendanceConfirm({
                                   key: occurrenceKey,
-                                  session: s,
+                                  session: s._historical ? { ...s, id: s._sourceSessionId } : s,
                                   members,
                                   statuses: memberStatuses,
-                                  confirmed: false,
+                                  originalStatuses: { ...memberStatuses },
                                 });
                               }}
                             >
@@ -1335,10 +1942,12 @@ function App() {
                                 {members.length === 1 ? members[0]?.name : `${completedCount}/${members.length} ${t.completed.toLowerCase()}`}
                               </div>
                             )}
-                            <div
-                              onMouseDown={(e) => onResizeMouseDown(e, s)}
-                              className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize"
-                            />
+                            {!s._historical && (
+                              <div
+                                onMouseDown={(e) => onResizeMouseDown(e, s)}
+                                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize"
+                              />
+                            )}
                           </div>
                         );
                       })}
@@ -1370,6 +1979,9 @@ function App() {
               </button>
             </div>
 
+            {modal.error && (
+              <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#FFECEC", color: "#E03131" }}>{modal.error}</div>
+            )}
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
@@ -1382,19 +1994,28 @@ function App() {
                     return (
                       <button
                         key={s.id}
+                        disabled={modal.mode === "history"}
                         onClick={() => {
+                          if (modal.mode === "history") return;
                           const studentIds = active
                             ? modal.studentIds.filter((id) => id !== s.id)
                             : [...(modal.studentIds || []), s.id];
                           const studentRates = { ...(modal.studentRates || {}) };
-                          if (active) delete studentRates[s.id];
-                          else studentRates[s.id] = Number(s.hourlyRate) || 0;
-                          setModal({ ...modal, studentIds, studentRates, studentId: studentIds[0] || null });
+                          const studentPricing = { ...(modal.studentPricing || {}) };
+                          if (active) {
+                            delete studentRates[s.id];
+                            delete studentPricing[s.id];
+                          } else {
+                            studentRates[s.id] = Number(s.hourlyRate) || 0;
+                            studentPricing[s.id] = { mode: "hourly", amount: Number(s.hourlyRate) || 0 };
+                          }
+                          setModal({ ...modal, studentIds, studentRates, studentPricing, studentId: studentIds[0] || null });
                         }}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border"
                         style={{
                           borderColor: active ? c.bg : "#DDE3E8",
                           background: active ? c.soft : "#fff",
+                          opacity: modal.mode === "history" && !active ? 0.45 : 1,
                         }}
                       >
                         <span className="w-2 h-2 rounded-full" style={{ background: c.bg }} />
@@ -1410,18 +2031,38 @@ function App() {
                 <div className="rounded-lg border p-3 flex flex-col gap-2" style={{ borderColor: "#DDE3E8", background: "#FBFCFE" }}>
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.memberRate}</label>
                   {modal.studentIds.map((studentId) => {
-                    const member = studentById(studentId);
+                    const member = studentById(studentId) || modal.historicalMembers?.find((item) => item.id === studentId);
+                    const pricing = modal.studentPricing?.[studentId] || { mode: "hourly", amount: modal.studentRates?.[studentId] ?? member?.hourlyRate ?? 0 };
                     return (
-                      <div key={studentId} className="flex items-center gap-2">
+                      <div key={studentId} className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs flex-1 truncate">{member?.name || "?"}</span>
+                        <select
+                          value={pricing.mode}
+                          onChange={(e) => setModal({
+                            ...modal,
+                            studentPricing: {
+                              ...modal.studentPricing,
+                              [studentId]: { ...pricing, mode: e.target.value },
+                            },
+                          })}
+                          className="px-2 py-1.5 rounded-lg text-xs border"
+                          style={{ borderColor: "#DDE3E8" }}
+                        >
+                          <option value="hourly">{t.hourlyPricing}</option>
+                          <option value="fixed">{t.fixedPricing}</option>
+                        </select>
                         <input
                           type="number"
                           min="0"
                           step="10000"
-                          value={modal.studentRates?.[studentId] ?? 0}
+                          value={pricing.amount}
                           onChange={(e) => setModal({
                             ...modal,
                             studentRates: { ...modal.studentRates, [studentId]: Math.max(0, Number(e.target.value) || 0) },
+                            studentPricing: {
+                              ...modal.studentPricing,
+                              [studentId]: { ...pricing, amount: Math.max(0, Number(e.target.value) || 0) },
+                            },
                           })}
                           className="w-32 px-2 py-1.5 rounded-lg text-sm border text-right"
                           style={{ borderColor: "#DDE3E8" }}
@@ -1440,11 +2081,13 @@ function App() {
                   {t.dayShort.map((d, i) => (
                     <button
                       key={d}
+                      disabled={modal.mode === "history"}
                       onClick={() => setModal({ ...modal, day: i })}
                       className="py-1.5 rounded-md text-xs font-medium"
                       style={{
                         background: modal.day === i ? "#1B2A4A" : "#F3F5F7",
                         color: modal.day === i ? "#fff" : "#16213E",
+                        opacity: modal.mode === "history" && modal.day !== i ? 0.45 : 1,
                       }}
                     >
                       {d}
@@ -1522,6 +2165,18 @@ function App() {
                 />
               </div>
 
+              <div>
+                <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.sessionNote}</label>
+                <textarea
+                  value={modal.details || ""}
+                  onChange={(e) => setModal({ ...modal, details: e.target.value })}
+                  placeholder={t.sessionNotePlaceholder}
+                  rows={2}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#DDE3E8" }}
+                />
+              </div>
+
               <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#8896AC" }}>
                 <Clock3 size={12} />
                 {fmtTime(modal.start)} – {fmtTime(modal.start + modal.duration)} · {t.dayLabels[modal.day]}
@@ -1529,6 +2184,11 @@ function App() {
               {modal.start + modal.duration > END_MIN && (
                 <div className="text-xs px-3 py-2 rounded-lg" style={{ background: "#FFECEC", color: "#E03131" }}>
                   {t.invalidTime}
+                </div>
+              )}
+              {modalHasOverlap && (
+                <div className="text-xs px-3 py-2 rounded-lg" style={{ background: "#FFF4E0", color: "#A65F00" }}>
+                  {t.overlapWarning}
                 </div>
               )}
             </div>
@@ -1576,20 +2236,20 @@ function App() {
         >
           <div className="w-full max-w-md rounded-xl p-5 shadow-xl" style={{ background: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold flex items-center gap-2"><Wallet size={17} /> {t.closeWeekTitle}</h2>
+              <h2 className="text-base font-semibold flex items-center gap-2"><Wallet size={17} /> {closeWeekModal.mode === "reopen" ? t.reopenWeekTitle : t.closeWeekTitle}</h2>
               <button onClick={() => setCloseWeekModal(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
             </div>
             <div className="text-xs mb-4" style={{ color: "#6B7A99" }}>
-              {viewWeekKey} → {viewWeekEnd}. {t.closeWeekHelp}
+              {viewWeekKey} → {viewWeekEnd}. {closeWeekModal.mode === "reopen" ? t.reopenWeekHelp : t.closeWeekHelp}
             </div>
             <div className="grid grid-cols-3 gap-2 mb-4">
               <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
-                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.sessionsCount}</div>
+                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.classSessions}</div>
                 <div className="text-lg font-semibold mt-1">{viewWeekSummary.sessions}</div>
               </div>
               <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
-                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.hoursCount}</div>
-                <div className="text-lg font-semibold mt-1">{(viewWeekSummary.minutes / 60).toFixed(1)}</div>
+                <div className="text-[11px]" style={{ color: "#6B7A99" }}>{t.classHours}</div>
+                <div className="text-lg font-semibold mt-1">{formatHours(viewWeekSummary.minutes, lang)}</div>
               </div>
               <div className="rounded-lg p-3" style={{ background: "#E4FBF3" }}>
                 <div className="text-[11px]" style={{ color: "#087F5B" }}>{t.taughtAmount}</div>
@@ -1600,10 +2260,10 @@ function App() {
               <input
                 type="checkbox"
                 checked={closeWeekModal.confirmed}
-                onChange={(e) => setCloseWeekModal({ confirmed: e.target.checked })}
+                onChange={(e) => setCloseWeekModal({ ...closeWeekModal, confirmed: e.target.checked })}
                 className="mt-0.5 w-4 h-4 accent-emerald-600"
               />
-              <span className="text-sm">{t.closeWeekText}</span>
+              <span className="text-sm">{closeWeekModal.mode === "reopen" ? t.reopenWeekText : t.closeWeekText}</span>
             </label>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setCloseWeekModal(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
@@ -1612,7 +2272,7 @@ function App() {
                 onClick={finishCloseWeek}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium"
                 style={{ background: closeWeekModal.confirmed ? "#F59F00" : "#B7C2D0", cursor: closeWeekModal.confirmed ? "pointer" : "not-allowed" }}
-              >{t.closeWeek}</button>
+              >{closeWeekModal.mode === "reopen" ? t.reopenWeek : t.closeWeek}</button>
             </div>
           </div>
         </div>
@@ -1639,15 +2299,18 @@ function App() {
                 {attendanceConfirm.key.split("|")[0]} · {fmtTime(attendanceConfirm.session.start)}–{fmtTime(attendanceConfirm.session.start + attendanceConfirm.session.duration)}
               </div>
             </div>
+            {attendanceConfirm.error && (
+              <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#FFECEC", color: "#E03131" }}>{attendanceConfirm.error}</div>
+            )}
             <div className="flex flex-col gap-2 mb-4">
               {attendanceConfirm.members.map((member) => {
                 const status = attendanceConfirm.statuses[member.id] || "planned";
-                const rate = attendanceConfirm.session.studentRates?.[member.id] ?? member.hourlyRate;
+                const pricing = pricingForStudent(attendanceConfirm.session, member);
                 return (
                   <div key={member.id} className="border rounded-lg p-3" style={{ borderColor: "#DDE3E8" }}>
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-sm font-medium">{member.name}</span>
-                      <span className="text-xs" style={{ color: "#6B7A99" }}>{formatMoney(rate, lang)}/{lang === "vi" ? "giờ" : "hour"}</span>
+                      <span className="text-xs" style={{ color: "#6B7A99" }}>{formatMoney(pricing.amount, lang)}/{pricing.mode === "fixed" ? (lang === "vi" ? "buổi" : "lesson") : (lang === "vi" ? "giờ" : "hour")}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
                       {[
@@ -1660,7 +2323,6 @@ function App() {
                           onClick={() => setAttendanceConfirm({
                             ...attendanceConfirm,
                             statuses: { ...attendanceConfirm.statuses, [member.id]: value },
-                            confirmed: false,
                           })}
                           className="px-2 py-1.5 rounded-md text-xs font-medium"
                           style={{ background: status === value ? color : soft, color: status === value ? "#FFFFFF" : color }}
@@ -1671,20 +2333,25 @@ function App() {
                 );
               })}
             </div>
-            <label className="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer" style={{ borderColor: attendanceConfirm.confirmed ? "#12B886" : "#DDE3E8", background: attendanceConfirm.confirmed ? "#E4FBF3" : "#FFFFFF" }}>
-              <input
-                type="checkbox"
-                checked={attendanceConfirm.confirmed}
-                onChange={(e) => setAttendanceConfirm({ ...attendanceConfirm, confirmed: e.target.checked })}
-                className="mt-0.5 w-4 h-4 accent-emerald-600"
-              />
-              <span className="text-sm">{t.confirmGroupAttendanceText}</span>
-            </label>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setAttendanceConfirm(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.cancel}</button>
               <button
-                disabled={!attendanceConfirm.confirmed}
                 onClick={() => {
+                  const latestStatuses = Object.fromEntries(attendanceConfirm.members.map((member) => {
+                    const memberKey = `${attendanceConfirm.key}|${member.id}`;
+                    return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "planned"];
+                  }));
+                  if (attendanceConfirm.originalStatuses && attendanceConfirm.members.some((member) =>
+                    latestStatuses[member.id] !== attendanceConfirm.originalStatuses[member.id]
+                  )) {
+                    setAttendanceConfirm({
+                      ...attendanceConfirm,
+                      statuses: latestStatuses,
+                      originalStatuses: latestStatuses,
+                      error: t.conflictError,
+                    });
+                    return;
+                  }
                   attendanceConfirm.members.forEach((member) => {
                     updateLessonStatus(
                       `${attendanceConfirm.key}|${member.id}`,
@@ -1696,7 +2363,7 @@ function App() {
                   setAttendanceConfirm(null);
                 }}
                 className="px-4 py-2 rounded-lg text-sm text-white font-medium transition"
-                style={{ background: attendanceConfirm.confirmed ? "#12B886" : "#B7C2D0", cursor: attendanceConfirm.confirmed ? "pointer" : "not-allowed" }}
+                style={{ background: "#12B886", cursor: "pointer" }}
               >
                 {t.confirmAction}
               </button>
@@ -1716,6 +2383,9 @@ function App() {
               <h2 className="text-base font-semibold flex items-center gap-2"><Pencil size={16} /> {t.editStudent}</h2>
               <button onClick={() => setStudentModal(null)} style={{ color: "#6B7A99" }}><X size={18} /></button>
             </div>
+            {studentModal.error && (
+              <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: "#FFECEC", color: "#E03131" }}>{studentModal.error}</div>
+            )}
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>{t.studentNamePlaceholder}</label>
@@ -1795,12 +2465,12 @@ function App() {
             <div className="overflow-y-auto p-4 sm:p-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
-                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.sessionsCount}</div>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.attendanceCount}</div>
                   <div className="text-xl font-semibold mt-1">{payrollRows.reduce((sum, row) => sum + row.sessions, 0)}</div>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
-                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.hoursCount}</div>
-                  <div className="text-xl font-semibold mt-1">{(payrollRows.reduce((sum, row) => sum + row.minutes, 0) / 60).toFixed(1)}</div>
+                  <div className="text-xs" style={{ color: "#6B7A99" }}>{t.billableHours}</div>
+                  <div className="text-xl font-semibold mt-1">{formatHours(payrollRows.reduce((sum, row) => sum + row.minutes, 0), lang)}</div>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: "#E4FBF3" }}>
                   <div className="text-xs" style={{ color: "#087F5B" }}>{t.totalAmount}</div>
@@ -1812,20 +2482,47 @@ function App() {
                 <div className="overflow-x-auto border rounded-lg mb-5" style={{ borderColor: "#DDE3E8" }}>
                   <table className="w-full text-sm">
                     <thead style={{ background: "#F3F5F7", color: "#6B7A99" }}>
-                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.sessionsCount}</th><th className="text-right px-3 py-2">{t.hoursCount}</th><th className="text-right px-3 py-2">{t.hourlyRate}</th><th className="text-right px-3 py-2">{t.totalAmount}</th></tr>
+                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.attendanceCount}</th><th className="text-right px-3 py-2">{t.billableHours}</th><th className="text-right px-3 py-2">{t.lessonPrice}</th><th className="text-right px-3 py-2">{t.totalAmount}</th></tr>
                     </thead>
                     <tbody>
                       {payrollRows.map((row) => (
                         <tr key={row.student.id} className="border-t" style={{ borderColor: "#DDE3E8" }}>
                           <td className="px-3 py-2 font-medium">{row.student.name}</td>
                           <td className="px-3 py-2 text-right">{row.sessions}</td>
-                          <td className="px-3 py-2 text-right">{(row.minutes / 60).toFixed(1)}</td>
-                          <td className="px-3 py-2 text-right">{row.hourlyRate === null ? "—" : formatMoney(row.hourlyRate, lang)}</td>
+                          <td className="px-3 py-2 text-right">{formatHours(row.minutes, lang)}</td>
+                          <td className="px-3 py-2 text-right">{row.priceDescription
+                            ? `${formatMoney(Number(row.priceDescription.split("|")[1]), lang)}/${row.priceDescription.startsWith("fixed|") ? (lang === "vi" ? "buổi" : "lesson") : (lang === "vi" ? "giờ" : "hour")}`
+                            : "—"}</td>
                           <td className="px-3 py-2 text-right font-semibold">{formatMoney(row.amount, lang)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {attendanceDetailRows.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="text-sm font-semibold mb-2">{t.attendanceDetails}</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {attendanceDetailRows.map((row) => (
+                      <div key={row.student.id} className="border rounded-lg p-3" style={{ borderColor: "#DDE3E8" }}>
+                        <div className="text-sm font-semibold mb-2">{row.student.name}</div>
+                        <div className="text-xs mb-1" style={{ color: "#087F5B" }}>{t.attendedDates}: {row.attended.length || 0}</div>
+                        {row.attended.map((item) => (
+                          <div key={`attended-${item.key}`} className="text-xs ml-2 mb-0.5">
+                            {item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}
+                          </div>
+                        ))}
+                        <div className="text-xs mt-2 mb-1" style={{ color: "#E03131" }}>{t.absentDates}: {row.absent.length || 0}</div>
+                        {row.absent.map((item) => (
+                          <div key={`absent-${item.key}`} className="text-xs ml-2 mb-0.5">
+                            {item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1839,7 +2536,8 @@ function App() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.student?.name || "?"}</div>
-                      <div className="text-xs truncate" style={{ color: "#6B7A99" }}>{item.session.note || `${item.session.duration} phút`} · {formatMoney((item.session.duration / 60) * (Number(item.student?.hourlyRate) || 0), lang)}</div>
+                      <div className="text-xs truncate" style={{ color: "#6B7A99" }}>{item.session.note || `${item.session.duration} ${lang === "vi" ? "phút" : "min"}`} · {formatMoney(calculatedLessonFee(item.session, item.student), lang)}</div>
+                      {item.session.details && <div className="text-xs mt-1" style={{ color: "#8896AC" }}>{item.session.details}</div>}
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       {[
@@ -1849,9 +2547,15 @@ function App() {
                       ].map(([status, label, color, soft]) => (
                         <button
                           key={status}
+                          disabled={Boolean(weeklyClosings[weekKeyForDateString(dateKey(item.date))])}
                           onClick={() => updateLessonStatus(item.key, item.session, item.student, status)}
                           className="px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1"
-                          style={{ background: item.status === status ? color : soft, color: item.status === status ? "#FFFFFF" : color }}
+                          style={{
+                            background: item.status === status ? color : soft,
+                            color: item.status === status ? "#FFFFFF" : color,
+                            opacity: weeklyClosings[weekKeyForDateString(dateKey(item.date))] ? 0.5 : 1,
+                            cursor: weeklyClosings[weekKeyForDateString(dateKey(item.date))] ? "not-allowed" : "pointer",
+                          }}
                         >
                           {status === "completed" && <Check size={12} />} {label}
                         </button>
@@ -1952,6 +2656,11 @@ function App() {
                     style={{ borderColor: "#DDE3E8" }}
                   />
                 </div>
+                {syncInputError && (
+                  <div className="text-xs px-3 py-2 rounded-lg" style={{ background: "#FFECEC", color: "#E03131" }}>
+                    {syncInputError}
+                  </div>
+                )}
                 <button
                   onClick={connectSync}
                   className="px-3 py-2 rounded-lg text-sm text-white font-medium"
