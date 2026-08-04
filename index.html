@@ -1416,6 +1416,16 @@ function App() {
 
   function finishCloseWeek() {
     if (closeWeekModal?.mode === "reopen") {
+      // Khôi phục đúng lịch đã được chốt (sessionsSnapshot) thành một weekOverride riêng cho tuần này,
+      // thay vì để tuần rơi về lịch mặc định/đè hiện tại. Nếu không làm vậy, khi lịch mặc định đã
+      // thay đổi kể từ lúc chốt tuần, mở lại tuần cũ sẽ hiển thị SAI lịch (không đúng buổi đã dạy thật).
+      const closing = weeklyClosings[viewWeekKey];
+      if (closing?.sessionsSnapshot) {
+        setWeekOverrides((prev) => ({
+          ...prev,
+          [viewWeekKey]: closing.sessionsSnapshot.map((session) => normalizeSession({ ...session }, students)),
+        }));
+      }
       setWeeklyClosings((prev) => {
         const next = { ...prev };
         delete next[viewWeekKey];
@@ -1694,7 +1704,9 @@ function App() {
             <div className="flex flex-col gap-1 mt-1">
               {students.map((s) => {
                 const c = colorFor(s);
-                const count = sessions.filter((x) => x.studentIds.includes(s.id)).length;
+                // Đếm theo lịch của tuần đang xem (activeSessionsForView), không dùng "sessions" gốc,
+                // vì sau khi đã từng bấm "Đặt lịch mặc định" thì "sessions" không còn phản ánh lịch thật nữa.
+                const count = activeSessionsForView.filter((x) => x.studentIds.includes(s.id)).length;
                 const active = filterId === s.id;
                 return (
                   <div
