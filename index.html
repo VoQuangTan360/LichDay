@@ -1945,7 +1945,7 @@ function App() {
                         const memberStatuses = Object.fromEntries(
                           members.map((member) => {
                             const memberKey = `${occurrenceKey}|${member.id}`;
-                            return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "completed"];
+                            return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "planned"];
                           })
                         );
                         const completedCount = Object.values(memberStatuses).filter((status) => status === "completed").length;
