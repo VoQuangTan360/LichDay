@@ -2412,7 +2412,7 @@ function App() {
                 onClick={() => {
                   const latestStatuses = Object.fromEntries(attendanceConfirm.members.map((member) => {
                     const memberKey = `${attendanceConfirm.key}|${member.id}`;
-                    return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "planned"];
+                    return [member.id, lessonRecords[memberKey]?.status || attendance[memberKey] || "completed"];
                   }));
                   if (attendanceConfirm.originalStatuses && attendanceConfirm.members.some((member) =>
                     latestStatuses[member.id] !== attendanceConfirm.originalStatuses[member.id]
