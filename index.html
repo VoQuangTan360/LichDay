@@ -1982,16 +1982,41 @@ function App() {
                               title={t.markTaught}
                               onMouseDown={(e) => e.stopPropagation()}
                               onClick={(e) => {
-                                e.stopPropagation();
-                                if (viewedWeekClosing) return;
-                                setAttendanceConfirm({
-                                  key: occurrenceKey,
-                                  session: s._historical ? { ...s, id: s._sourceSessionId } : s,
-                                  members,
-                                  statuses: memberStatuses,
-                                  originalStatuses: { ...memberStatuses },
+                              e.stopPropagation();
+                              if (viewedWeekClosing) return;
+
+                              const hasAttendanceData = members.some((member) => {
+                                const memberKey = `${occurrenceKey}|${member.id}`;
+
+                                return (
+                                  lessonRecords[memberKey]?.status != null ||
+                                  attendance[memberKey] != null
+                                );
+                              });
+
+                              // Chưa có dữ liệu: đánh dấu tất cả là đã dạy ngay.
+                              if (!hasAttendanceData) {
+                                members.forEach((member) => {
+                                  updateLessonStatus(
+                                    `${occurrenceKey}|${member.id}`,
+                                    { ...(s._historical ? { ...s, id: s._sourceSessionId } : s), studentId: member.id },
+                                    member,
+                                    "completed"
+                                  );
                                 });
-                              }}
+
+                                return;
+                              }
+
+                              // Đã có dữ liệu: mở hộp thoại để xem hoặc chỉnh sửa.
+                              setAttendanceConfirm({
+                                key: occurrenceKey,
+                                session: s._historical ? { ...s, id: s._sourceSessionId } : s,
+                                members,
+                                statuses: memberStatuses,
+                                originalStatuses: { ...memberStatuses },
+                              });
+                            }}
                             >
                               <input
                                 type="checkbox"
