@@ -57,6 +57,7 @@ const ChevronLeft = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6" /></I
 const ChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6" /></Icon>;
 const Pencil = (p) => <Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" /></Icon>;
 const Zap = (p) => <Icon {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></Icon>;
+const History = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 3-6.7" /><polyline points="3 3 3 9 9 9" /><polyline points="12 7 12 12 15 14" /></Icon>;
 
 // ---------- Translations ----------
 const TRANSLATIONS = {
@@ -94,8 +95,10 @@ const TRANSLATIONS = {
     defaultScheduleSet: "Đã đặt tuần này làm lịch mặc định cho các tuần tiếp theo.",
     hourlyPricing: "Tính theo giờ",
     fixedPricing: "Giá trọn buổi",
-    sessionNote: "Ghi chú buổi học",
-    sessionNotePlaceholder: "Ví dụ: học bù, đổi giờ theo yêu cầu, nội dung cần lưu ý…",
+    sessionNote: "Ghi chú chung của lớp",
+    sessionNotePlaceholder: "Ví dụ: nội dung hoặc lưu ý áp dụng chung cho lớp…",
+    occurrenceNote: "Ghi chú riêng cho buổi này",
+    occurrenceNotePlaceholder: "Ví dụ: học bù, bài tập cần làm, tình hình riêng của ngày này…",
     attendanceDetails: "Chi tiết học và nghỉ",
     attendedDates: "Buổi đã học",
     absentDates: "Buổi đã nghỉ",
@@ -113,17 +116,24 @@ const TRANSLATIONS = {
     studentColor: "Màu nhận diện",
     classMembers: "Học sinh trong lớp",
     memberRate: "Cách tính và học phí riêng",
-    lessonPrice: "Học phí",
+    lessonPrice: "Đơn giá",
     selectAtLeastOne: "Hãy chọn ít nhất một học sinh.",
     attendanceByStudent: "Chấm công từng học sinh",
+    cancelledClassIndicator: "Lớp đã nghỉ",
+    partialAttendanceIndicator: "Học viên tham gia chưa đủ",
     sessionsCount: "Số buổi",
     hoursCount: "Số giờ",
     classSessions: "Số lớp đã dạy",
     classHours: "Giờ đứng lớp",
-    attendanceCount: "Lượt học viên",
-    billableHours: "Giờ tính công",
+    attendanceCount: "Số buổi đã học",
+    billableHours: "Tổng giờ học",
     totalAmount: "Thành tiền",
+    paymentStatus: "Thanh toán",
+    markPaid: "Đánh dấu đã thanh toán",
+    paid: "Đã thanh toán",
+    undoPayment: "Hoàn tác thanh toán",
     noLessons: "Không có buổi học trong tháng này.",
+    payrollCalculationNote: "Chỉ buổi Đã học được tính vào số buổi, số giờ và thành tiền. Buổi Dự kiến và Đã nghỉ không được tính tiền.",
     addSession: "Thêm buổi học",
     editSession: "Sửa buổi học",
     day: "Ngày",
@@ -133,12 +143,12 @@ const TRANSLATIONS = {
     notePlaceholder: "Ví dụ: Lớp Toán 9, Tiếng Anh…",
     delete: "Xóa",
     save: "Lưu",
-    syncOffline: "Chưa đồng bộ",
+    syncOffline: "Lưu tại máy",
     syncConnecting: "Đang kết nối…",
-    syncSynced: "Đã đồng bộ",
+    syncSynced: "Sẵn sàng backup",
     syncError: "Lỗi đồng bộ",
-    syncTitle: "Đồng bộ nhiều thiết bị",
-    syncIntro: "Dán cấu hình Firebase (Firestore) của bạn để lịch dạy tự động đồng bộ giữa các thiết bị.",
+    syncTitle: "Lưu trữ và backup",
+    syncIntro: "Dữ liệu được lưu chính trên máy. Firebase chỉ được cập nhật khi bạn chủ động sao lưu hoặc khôi phục.",
     syncConfigLabel: "Cấu hình Firebase",
     syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
     syncCodeLabel: "Mã đồng bộ (để trống sẽ tự tạo)",
@@ -148,6 +158,32 @@ const TRANSLATIONS = {
     copyLink: "Sao chép liên kết đồng bộ",
     syncedAs: "Mã đồng bộ hiện tại",
     syncHelp: "Mở liên kết này trên thiết bị khác để xem cùng một lịch.",
+    localBackup: "Sao lưu tại máy",
+    exportBackup: "Xuất file backup",
+    importBackup: "Nhập file backup",
+    restoreBackup: "Khôi phục dữ liệu",
+    backupPreview: "Xem trước bản backup",
+    backupInvalid: "File backup không hợp lệ.",
+    firebaseBackup: "Backup Firebase",
+    checkCloud: "Kiểm tra bản trên Firebase",
+    uploadCloud: "Sao lưu lên Firebase",
+    restoreCloud: "Khôi phục từ Firebase",
+    noCloudBackup: "Chưa có bản backup nào trên Firebase.",
+    cloudConflict: "Firebase có phiên bản mới hơn. Hãy kiểm tra trước khi sao lưu để tránh ghi đè.",
+    backupSuccess: "Đã sao lưu thành công.",
+    restoreSuccess: "Đã khôi phục dữ liệu thành công.",
+    localPrimary: "Đang dùng lưu trữ cục bộ",
+    loadingData: "Đang tải dữ liệu trên máy…",
+    localSaving: "Đang lưu…",
+    localSaved: "Đã lưu",
+    localSaveError: "Lỗi lưu dữ liệu",
+    recentSnapshots: "Phiên bản gần đây",
+    noSnapshots: "Chưa có snapshot cục bộ.",
+    restoreConfirm: "Khôi phục bản này? Dữ liệu hiện tại sẽ được lưu thành snapshot trước khi thay thế.",
+    activityLog: "Nhật ký hoạt động",
+    noActivity: "Chưa có hoạt động nào được ghi lại.",
+    clearLog: "Xóa nhật ký",
+    clearLogConfirm: "Xóa toàn bộ nhật ký hoạt động?",
     invalidSyncCode: "Mã đồng bộ chỉ được chứa chữ, số, dấu gạch ngang hoặc gạch dưới (3–80 ký tự).",
     invalidFirebaseConfig: "Cấu hình Firebase không hợp lệ.",
     conflictError: "Dữ liệu này vừa được cập nhật trên thiết bị khác. Hãy đóng hộp thoại, kiểm tra dữ liệu mới rồi thử lại.",
@@ -196,8 +232,10 @@ const TRANSLATIONS = {
     defaultScheduleSet: "This week is now the default schedule for future weeks.",
     hourlyPricing: "Hourly rate",
     fixedPricing: "Fixed lesson fee",
-    sessionNote: "Lesson note",
-    sessionNotePlaceholder: "e.g. make-up lesson, requested time change, important details…",
+    sessionNote: "General class note",
+    sessionNotePlaceholder: "e.g. content or notes that generally apply to this class…",
+    occurrenceNote: "Note for this lesson only",
+    occurrenceNotePlaceholder: "e.g. make-up lesson, homework, or notes specific to this date…",
     attendanceDetails: "Attendance details",
     attendedDates: "Attended lessons",
     absentDates: "Cancelled lessons",
@@ -215,17 +253,24 @@ const TRANSLATIONS = {
     studentColor: "Display color",
     classMembers: "Class members",
     memberRate: "Individual pricing",
-    lessonPrice: "Lesson price",
+    lessonPrice: "Unit price",
     selectAtLeastOne: "Select at least one student.",
     attendanceByStudent: "Attendance by student",
+    cancelledClassIndicator: "Cancelled class",
+    partialAttendanceIndicator: "Not all students attended",
     sessionsCount: "Sessions",
     hoursCount: "Hours",
     classSessions: "Classes taught",
     classHours: "Teaching hours",
-    attendanceCount: "Student attendances",
-    billableHours: "Billable hours",
+    attendanceCount: "Completed lessons",
+    billableHours: "Total study hours",
     totalAmount: "Amount",
+    paymentStatus: "Payment",
+    markPaid: "Mark as paid",
+    paid: "Paid",
+    undoPayment: "Undo payment",
     noLessons: "No lessons in this month.",
+    payrollCalculationNote: "Only Completed lessons count toward sessions, billable hours, and the amount. Planned and Cancelled lessons are not charged.",
     addSession: "Add session",
     editSession: "Edit session",
     day: "Day",
@@ -235,12 +280,12 @@ const TRANSLATIONS = {
     notePlaceholder: "e.g. Math 9, English…",
     delete: "Delete",
     save: "Save",
-    syncOffline: "Not synced",
+    syncOffline: "Stored locally",
     syncConnecting: "Connecting…",
-    syncSynced: "Synced",
+    syncSynced: "Backup ready",
     syncError: "Sync error",
-    syncTitle: "Sync across devices",
-    syncIntro: "Paste your own Firebase (Firestore) config to sync this schedule across devices.",
+    syncTitle: "Storage and backup",
+    syncIntro: "Data is stored primarily on this device. Firebase changes only when you explicitly back up or restore.",
     syncConfigLabel: "Firebase config",
     syncConfigPlaceholder: '{\n  apiKey: "...",\n  projectId: "...",\n  ...\n}',
     syncCodeLabel: "Sync code (leave blank to generate one)",
@@ -250,6 +295,32 @@ const TRANSLATIONS = {
     copyLink: "Copy sync link",
     syncedAs: "Current sync code",
     syncHelp: "Open this link on another device to see the same schedule.",
+    localBackup: "Local backup",
+    exportBackup: "Export backup file",
+    importBackup: "Import backup file",
+    restoreBackup: "Restore data",
+    backupPreview: "Backup preview",
+    backupInvalid: "Invalid backup file.",
+    firebaseBackup: "Firebase backup",
+    checkCloud: "Check Firebase backup",
+    uploadCloud: "Back up to Firebase",
+    restoreCloud: "Restore from Firebase",
+    noCloudBackup: "No Firebase backup exists yet.",
+    cloudConflict: "Firebase has a newer revision. Check it before uploading to avoid overwriting data.",
+    backupSuccess: "Backup completed.",
+    restoreSuccess: "Data restored successfully.",
+    localPrimary: "Using local-first storage",
+    loadingData: "Loading local data…",
+    localSaving: "Saving…",
+    localSaved: "Saved",
+    localSaveError: "Save failed",
+    recentSnapshots: "Recent versions",
+    noSnapshots: "No local snapshots yet.",
+    restoreConfirm: "Restore this version? Current data will be saved as a snapshot before replacement.",
+    activityLog: "Activity log",
+    noActivity: "No activity has been recorded yet.",
+    clearLog: "Clear log",
+    clearLogConfirm: "Clear the entire activity log?",
     invalidSyncCode: "Sync code may contain only letters, numbers, hyphens or underscores (3–80 characters).",
     invalidFirebaseConfig: "Invalid Firebase config.",
     conflictError: "This data was updated on another device. Close this dialog, review the latest data, and try again.",
@@ -268,7 +339,7 @@ const TRANSLATIONS = {
 
 const STUDENT_COLORS = [
   // ===== 6 màu nổi bật =====
-  { bg: "#C95A52", soft: "#FBF0EF" }, // Brick Red
+  { bg: "#3B82A0", soft: "#EEF7FA" }, // Ocean Blue
   { bg: "#4C7FAF", soft: "#EEF4FA" }, // Denim Blue
   { bg: "#5A9367", soft: "#F1F7F3" }, // Forest Green
   { bg: "#D08A3C", soft: "#FCF5EB" }, // Amber Orange
@@ -286,10 +357,10 @@ const STUDENT_COLORS = [
   { bg: "#6E8C63", soft: "#F3F7F2" }, // Moss
   { bg: "#7FA886", soft: "#F4F8F4" }, // Sage
   
-  // Đỏ / Hồng
-  { bg: "#B86C76", soft: "#FAF2F3" }, // Dusty Rose
-  { bg: "#A85663", soft: "#F9EFF1" }, // Wine
-  { bg: "#C47D68", soft: "#FBF4F1" }, // Terracotta
+  // Màu bổ sung (không dùng đỏ vì đỏ dành riêng cho lớp đã nghỉ)
+  { bg: "#6A7FDB", soft: "#F1F3FC" }, // Periwinkle
+  { bg: "#496F5D", soft: "#F0F6F3" }, // Pine
+  { bg: "#9A7B4F", soft: "#F8F5F0" }, // Bronze
   
   // Tím
   { bg: "#8D6A9F", soft: "#F5F2F7" }, // Lavender
@@ -378,6 +449,79 @@ const seedSessions = [
 ];
 
 const STORAGE_KEY = "tutor_schedule_v1";
+const LOCAL_DB_NAME = "tutor_schedule_local_v2";
+const LOCAL_DB_VERSION = 1;
+const LOCAL_STATE_KEY = "current";
+const DEVICE_ID_KEY = "tutor_schedule_device_id";
+const LOCAL_SNAPSHOT_INTERVAL = 5 * 60 * 1000;
+const MANUAL_SYNC_ONLY = true;
+let LOCAL_SAVE_QUEUE = Promise.resolve();
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = `device-${uid()}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+function openLocalDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("IndexedDB unavailable"));
+    const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("state")) db.createObjectStore("state", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("snapshots")) db.createObjectStore("snapshots", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "id" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbRequest(storeName, mode, action) {
+  const db = await openLocalDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, mode);
+    const store = transaction.objectStore(storeName);
+    const request = action(store);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => db.close();
+  });
+}
+
+const idbGet = (store, id) => idbRequest(store, "readonly", (objectStore) => objectStore.get(id));
+const idbPut = (store, value) => idbRequest(store, "readwrite", (objectStore) => objectStore.put(value));
+const idbGetAll = (store) => idbRequest(store, "readonly", (objectStore) => objectStore.getAll());
+const idbDelete = (store, id) => idbRequest(store, "readwrite", (objectStore) => objectStore.delete(id));
+
+async function persistLocalPayload(payload, forceSnapshot = false) {
+  const savedAt = Date.now();
+  const current = await idbGet("state", LOCAL_STATE_KEY);
+  const revision = Number(current?.revision || 0) + 1;
+  await idbPut("state", { id: LOCAL_STATE_KEY, payload, savedAt, revision, schemaVersion: 4 });
+  const meta = await idbGet("meta", "snapshots");
+  if (forceSnapshot || !meta?.lastSnapshotAt || savedAt - meta.lastSnapshotAt >= LOCAL_SNAPSHOT_INTERVAL) {
+    await idbPut("snapshots", { id: String(savedAt), payload, savedAt, revision, schemaVersion: 4 });
+    await idbPut("meta", { id: "snapshots", lastSnapshotAt: savedAt });
+    const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt);
+    await Promise.all(snapshots.slice(10).map((snapshot) => idbDelete("snapshots", snapshot.id)));
+  }
+  return { savedAt, revision };
+}
+
+function enqueueLocalPayload(payload, forceSnapshot = false) {
+  const stablePayload = typeof structuredClone === "function"
+    ? structuredClone(payload)
+    : JSON.parse(JSON.stringify(payload));
+  LOCAL_SAVE_QUEUE = LOCAL_SAVE_QUEUE
+    .catch(() => {})
+    .then(() => persistLocalPayload(stablePayload, forceSnapshot));
+  return LOCAL_SAVE_QUEUE;
+}
 function loadSaved() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -536,6 +680,8 @@ function App() {
   );
   const [payrollOpen, setPayrollOpen] = useState(false);
   const [payrollMonth, setPayrollMonth] = useState(currentMonthKey());
+  const [tuitionPayments, setTuitionPayments] = useState(savedData?.tuitionPayments || {});
+  const [occurrenceNotes, setOccurrenceNotes] = useState(savedData?.occurrenceNotes || {});
   const [attendanceConfirm, setAttendanceConfirm] = useState(null);
   const [quickAttendance, setQuickAttendance] = useState(savedData?.quickAttendance ?? true);
 
@@ -546,8 +692,20 @@ function App() {
   const [syncCodeInput, setSyncCodeInput] = useState("");
   const [syncInputError, setSyncInputError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
+  const [localHydrated, setLocalHydrated] = useState(false);
+  const [localSaveStatus, setLocalSaveStatus] = useState("loading");
+  const [lastLocalSavedAt, setLastLocalSavedAt] = useState(null);
+  const [backupPreview, setBackupPreview] = useState(null);
+  const [cloudBackup, setCloudBackup] = useState(null);
+  const [backupFeedback, setBackupFeedback] = useState("");
+  const [localSnapshots, setLocalSnapshots] = useState([]);
+  const [activityLogs, setActivityLogs] = useState(savedData?.activityLogs || []);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
 
   const gridRef = useRef(null);
+  const importBackupRef = useRef(null);
+  const deviceIdRef = useRef(getDeviceId());
+  const knownCloudRevisionRef = useRef(0);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
   const updateViewedWeekSessionsRef = useRef(null);
@@ -564,6 +722,60 @@ function App() {
   const lastSyncedStateRef = useRef(null);
   const remoteReadyRef = useRef(false);
   const recordsRefreshSessionIdsRef = useRef(new Set());
+
+  function currentPayload() {
+    return { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance };
+  }
+
+  function recordActivity(type, message, details = {}) {
+    setActivityLogs((previous) => [{ id: uid(), type, message, details, at: Date.now(), deviceId: deviceIdRef.current }, ...previous].slice(0, 1000));
+  }
+
+  function applyPayload(data) {
+    if (!data || !Array.isArray(data.students) || !Array.isArray(data.sessions)) throw new Error("Invalid backup");
+    const nextStudents = data.students;
+    setStudents(nextStudents);
+    setSessions(data.sessions.map((session) => normalizeSession(session, nextStudents)));
+    setWeekOverrides(Object.fromEntries(Object.entries(data.weekOverrides || {}).map(([key, items]) => [key, (items || []).map((session) => normalizeSession(session, nextStudents))])));
+    setDefaultScheduleVersions(Object.fromEntries(Object.entries(data.defaultScheduleVersions || {}).map(([key, items]) => [key, (items || []).map((session) => normalizeSession(session, nextStudents))])));
+    setAttendance(data.attendance || {});
+    setLessonRecords(normalizeLessonRecords(data.lessonRecords || {}));
+    setWeeklyClosings(data.weeklyClosings || {});
+    setTuitionPayments(data.tuitionPayments || {});
+    setOccurrenceNotes(data.occurrenceNotes || {});
+    setActivityLogs(data.activityLogs || []);
+    setLang(data.lang || "vi");
+    setRowHeight(data.rowHeight || 56);
+    setQuickAttendance(data.quickAttendance ?? true);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    idbGet("state", LOCAL_STATE_KEY)
+      .then(async (record) => {
+        if (cancelled) return;
+        if (record?.payload) {
+          applyPayload(record.payload);
+          setLastLocalSavedAt(record.savedAt || null);
+        } else if (savedData) {
+          const saved = await enqueueLocalPayload(savedData, true);
+          setLastLocalSavedAt(saved.savedAt);
+        }
+        try { localStorage.removeItem(STORAGE_KEY); } catch (error) {}
+      })
+      .catch((error) => {
+        console.warn("Could not load IndexedDB data:", error);
+        setLocalSaveStatus("error");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLocalHydrated(true);
+          setLocalSaveStatus((status) => status === "error" ? status : "saved");
+        }
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line
+  }, []);
 
   useEffect(() => {
     const t2 = setInterval(() => setNow(new Date()), 60000);
@@ -620,6 +832,26 @@ function App() {
   // connect to Firestore whenever syncCfg changes
   useEffect(() => {
     let cancelled = false;
+    if (MANUAL_SYNC_ONLY) {
+      dbRef.current = null;
+      setCloudBackup(null);
+      knownCloudRevisionRef.current = 0;
+      if (!syncCfg?.apiKey || !syncCfg?.projectId || !syncCfg?.syncCode) {
+        setSyncStatus("offline");
+        return;
+      }
+      try {
+        const appName = `tutor-schedule-manual-${syncCfg.projectId}`;
+        const existing = firebase.apps.find((app) => app.name === appName);
+        const fbApp = existing || firebase.initializeApp(syncCfg, appName);
+        dbRef.current = firebase.firestore(fbApp);
+        setSyncStatus("synced");
+      } catch (error) {
+        console.warn("Could not prepare Firebase backup:", error);
+        setSyncStatus("error");
+      }
+      return () => { cancelled = true; };
+    }
     remoteReadyRef.current = false;
     collectionsReadyRef.current = false;
     collectionMigrationRef.current = false;
@@ -712,6 +944,7 @@ function App() {
               sessionsById: itemsById(source.sessions || sessions),
               weekOverrides: source.weekOverrides || weekOverrides,
               defaultScheduleVersions: source.defaultScheduleVersions || defaultScheduleVersions,
+              tuitionPayments: source.tuitionPayments || tuitionPayments,
               lang: source.lang || lang,
               rowHeight: source.rowHeight || rowHeight,
               attendance: firebase.firestore.FieldValue.delete(),
@@ -748,6 +981,7 @@ function App() {
               ? normalizeLessonRecords(data.lessonRecords)
               : (schemaVersion >= 3 ? lessonRecords : migrateLegacyAttendance(remoteAttendance, remoteSessions, remoteStudents));
             const remoteWeeklyClosings = schemaVersion >= 3 ? weeklyClosings : (data.weeklyClosings || {});
+            const remoteTuitionPayments = data.tuitionPayments || {};
             const remoteLang = data.lang || lang;
             const remoteRowHeight = data.rowHeight || rowHeight;
             const remoteState = {
@@ -758,6 +992,7 @@ function App() {
               attendance: remoteAttendance,
               lessonRecords: remoteLessonRecords,
               weeklyClosings: remoteWeeklyClosings,
+              tuitionPayments: remoteTuitionPayments,
               lang: remoteLang,
               rowHeight: remoteRowHeight,
             };
@@ -766,6 +1001,7 @@ function App() {
             setSessions(remoteSessions);
             setWeekOverrides(remoteWeekOverrides);
             setDefaultScheduleVersions(remoteDefaultScheduleVersions);
+            setTuitionPayments(remoteTuitionPayments);
             if (schemaVersion < 3) {
               setAttendance(remoteAttendance);
               setLessonRecords(remoteLessonRecords);
@@ -782,6 +1018,7 @@ function App() {
                 attendance: remoteAttendance,
                 lessonRecords: remoteLessonRecords,
                 weeklyClosings: remoteWeeklyClosings,
+                tuitionPayments: remoteTuitionPayments,
                 lang: remoteLang,
                 rowHeight: remoteRowHeight,
               }, true);
@@ -798,6 +1035,7 @@ function App() {
                 sessionsById: itemsById(sessions),
                 weekOverrides,
                 defaultScheduleVersions,
+                tuitionPayments,
                 lang,
                 rowHeight,
                 updatedAt: Date.now(),
@@ -838,15 +1076,22 @@ function App() {
     // eslint-disable-next-line
   }, [syncCfg?.apiKey, syncCfg?.projectId, syncCfg?.syncCode]);
 
-  // Save locally and update only changed Firebase fields. This prevents one browser
-  // from replacing unrelated students, classes or attendance written by another.
+  // IndexedDB is the single source of truth. Writes are serialized by LOCAL_SAVE_QUEUE.
   useEffect(() => {
-    const payload = { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, quickAttendance };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.warn("Could not save schedule:", e);
+    const payload = { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance };
+    if (localHydrated) {
+      setLocalSaveStatus("saving");
+      enqueueLocalPayload(payload)
+        .then((saved) => {
+          setLastLocalSavedAt(saved.savedAt);
+          setLocalSaveStatus("saved");
+        })
+        .catch((error) => {
+          console.warn("Could not save IndexedDB data:", error);
+          setLocalSaveStatus("error");
+        });
     }
+    if (MANUAL_SYNC_ONLY) return;
     const previous = lastSyncedStateRef.current;
     if (!dbRef.current || !syncCfg?.syncCode || !remoteReadyRef.current || !previous) return;
     const updates = {};
@@ -863,6 +1108,7 @@ function App() {
     addMapChanges("sessionsById", itemsById(previous.sessions), itemsById(sessions));
     addMapChanges("weekOverrides", previous.weekOverrides || {}, weekOverrides);
     addMapChanges("defaultScheduleVersions", previous.defaultScheduleVersions || {}, defaultScheduleVersions);
+    addMapChanges("tuitionPayments", previous.tuitionPayments || {}, tuitionPayments);
     if (previous.lang !== lang) updates.lang = lang;
     if (previous.rowHeight !== rowHeight) updates.rowHeight = rowHeight;
     if (!Object.keys(updates).length) return;
@@ -879,7 +1125,7 @@ function App() {
         console.warn("Atomic sync failed:", error);
         setSyncStatus("error");
       });
-  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, lang, rowHeight, quickAttendance]);
+  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance, localHydrated]);
 
   useEffect(() => {
     const docRef = syncRootDocRef.current;
@@ -957,6 +1203,7 @@ function App() {
       }
       setSyncInputError("");
       setSyncCfg({ ...cfg, syncCode: code });
+      recordActivity("firebase.connect", lang === "vi" ? `Đã cấu hình Firebase với mã ${code}` : `Configured Firebase with code ${code}`, { syncCode: code, projectId: cfg.projectId });
       setSyncModalOpen(false);
     } catch (e) {
       setSyncInputError(t.invalidFirebaseConfig);
@@ -964,6 +1211,7 @@ function App() {
   }
 
   function disconnectSync() {
+    recordActivity("firebase.disconnect", lang === "vi" ? "Đã ngắt cấu hình Firebase" : "Disconnected Firebase configuration", { syncCode: syncCfg?.syncCode });
     setSyncCfg(null);
     setSyncModalOpen(false);
   }
@@ -983,6 +1231,205 @@ function App() {
     setTimeout(() => setCopyFeedback(""), 4000);
   }
 
+  function backupSummary(payload) {
+    return {
+      students: payload?.students?.length || 0,
+      sessions: payload?.sessions?.length || 0,
+      lessons: Object.keys(payload?.lessonRecords || {}).length,
+      payments: Object.keys(payload?.tuitionPayments || {}).length,
+      activities: payload?.activityLogs?.length || 0,
+    };
+  }
+
+  async function openStorageModal() {
+    setSyncModalOpen(true);
+    try {
+      const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt).slice(0, 10);
+      setLocalSnapshots(snapshots.map((snapshot) => ({ ...snapshot, summary: backupSummary(snapshot.payload) })));
+    } catch (error) {
+      console.warn("Could not list local snapshots:", error);
+    }
+  }
+
+  async function restoreLocalSnapshot(snapshot) {
+    if (!window.confirm(t.restoreConfirm)) return;
+    await enqueueLocalPayload(currentPayload(), true);
+    applyPayload(snapshot.payload);
+    recordActivity("backup.local.restore", lang === "vi" ? "Đã khôi phục snapshot cục bộ" : "Restored local snapshot", { snapshotId: snapshot.id, savedAt: snapshot.savedAt });
+    setBackupFeedback(t.restoreSuccess);
+    const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt).slice(0, 10);
+    setLocalSnapshots(snapshots.map((item) => ({ ...item, summary: backupSummary(item.payload) })));
+  }
+
+  function exportLocalBackup() {
+    recordActivity("backup.file.export", lang === "vi" ? "Đã xuất file backup" : "Exported backup file");
+    const envelope = { schemaVersion: 4, exportedAt: Date.now(), deviceId: deviceIdRef.current, payload: currentPayload() };
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `lich-day-backup-${dateKey(new Date())}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function previewImportedBackup(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const payload = parsed.payload || parsed;
+        if (!Array.isArray(payload.students) || !Array.isArray(payload.sessions)) throw new Error("Invalid backup");
+        setBackupPreview({ source: "file", payload, savedAt: parsed.exportedAt || file.lastModified, summary: backupSummary(payload) });
+        setBackupFeedback("");
+      } catch (error) {
+        setBackupFeedback(t.backupInvalid);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function restorePreviewedBackup() {
+    if (!backupPreview?.payload) return;
+    if (!window.confirm(t.restoreConfirm)) return;
+    await enqueueLocalPayload(currentPayload(), true);
+    applyPayload(backupPreview.payload);
+    recordActivity("backup.file.restore", lang === "vi" ? "Đã khôi phục từ file backup" : "Restored from backup file", { savedAt: backupPreview.savedAt });
+    setBackupPreview(null);
+    setBackupFeedback(t.restoreSuccess);
+  }
+
+  async function readFirebaseBackupVersion(ref, revision, fallback) {
+    if (!revision) return fallback || null;
+    const versionSnapshot = await ref.collection("versions").doc(String(revision)).get();
+    if (!versionSnapshot.exists) return fallback || null;
+    const version = versionSnapshot.data();
+    if (version.payload) return version;
+    const partCount = Number(version.partCount || 0);
+    if (!partCount) return version;
+    const partSnapshots = await Promise.all(Array.from({ length: partCount }, (_, index) =>
+      versionSnapshot.ref.collection("parts").doc(String(index).padStart(5, "0")).get()
+    ));
+    const payloadJson = partSnapshots.map((part) => part.data()?.data || "").join("");
+    return { ...version, payload: JSON.parse(payloadJson) };
+  }
+
+  async function checkFirebaseBackup() {
+    if (!dbRef.current || !syncCfg?.syncCode) return;
+    setSyncStatus("connecting");
+    try {
+      const snapshot = await dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode).get();
+      if (!snapshot.exists) {
+        knownCloudRevisionRef.current = 0;
+        setCloudBackup(null);
+        setBackupFeedback(t.noCloudBackup);
+      } else {
+        const data = snapshot.data();
+        const revision = Number(data.revision || 0);
+        const versionData = await readFirebaseBackupVersion(snapshot.ref, revision, data);
+        knownCloudRevisionRef.current = revision;
+        setCloudBackup({ ...data, ...versionData, revision, summary: backupSummary(versionData.payload) });
+        setBackupFeedback("");
+      }
+      setSyncStatus("synced");
+    } catch (error) {
+      console.warn("Could not check Firebase backup:", error);
+      setSyncStatus("error");
+    }
+  }
+
+  async function uploadFirebaseBackup() {
+    if (!dbRef.current || !syncCfg?.syncCode) return;
+    setSyncStatus("connecting");
+    try {
+      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
+      const snapshot = await ref.get();
+      const remoteRevision = snapshot.exists ? Number(snapshot.data().revision || 0) : 0;
+      if (remoteRevision !== knownCloudRevisionRef.current) {
+        const data = snapshot.exists ? snapshot.data() : null;
+        const versionData = data ? await readFirebaseBackupVersion(ref, remoteRevision, data) : null;
+        knownCloudRevisionRef.current = remoteRevision;
+        setCloudBackup(data ? { ...data, ...versionData, revision: remoteRevision, summary: backupSummary(versionData?.payload) } : null);
+        setBackupFeedback(t.cloudConflict);
+        setSyncStatus("synced");
+        return;
+      }
+      const payload = currentPayload();
+      const next = {
+        schemaVersion: 4,
+        revision: remoteRevision + 1,
+        updatedAt: Date.now(),
+        deviceId: deviceIdRef.current,
+        summary: backupSummary(payload),
+        payload,
+      };
+      const payloadJson = JSON.stringify(payload);
+      const parts = payloadJson.match(/[\s\S]{1,200000}/g) || [""];
+      const versionRef = ref.collection("versions").doc(String(next.revision));
+      for (let offset = 0; offset < parts.length; offset += 400) {
+        const partsBatch = dbRef.current.batch();
+        parts.slice(offset, offset + 400).forEach((data, index) => {
+          const partIndex = offset + index;
+          partsBatch.set(versionRef.collection("parts").doc(String(partIndex).padStart(5, "0")), { data });
+        });
+        await partsBatch.commit();
+      }
+      const manifestBatch = dbRef.current.batch();
+      manifestBatch.set(versionRef, {
+        schemaVersion: next.schemaVersion,
+        revision: next.revision,
+        updatedAt: next.updatedAt,
+        deviceId: next.deviceId,
+        summary: next.summary,
+        partCount: parts.length,
+      });
+      manifestBatch.set(ref, {
+        schemaVersion: next.schemaVersion,
+        revision: next.revision,
+        updatedAt: next.updatedAt,
+        deviceId: next.deviceId,
+        summary: next.summary,
+      });
+      await manifestBatch.commit();
+      recordActivity("backup.firebase.upload", lang === "vi" ? `Đã sao lưu Firebase revision ${next.revision}` : `Backed up Firebase revision ${next.revision}`, { revision: next.revision });
+      knownCloudRevisionRef.current = next.revision;
+      setCloudBackup(next);
+      setBackupFeedback(t.backupSuccess);
+      window.setTimeout(() => setBackupFeedback((current) => current === t.backupSuccess ? "" : current), 3500);
+      setSyncStatus("synced");
+    } catch (error) {
+      console.warn("Could not upload Firebase backup:", error);
+      setSyncStatus("error");
+    }
+  }
+
+  async function restoreFirebaseBackup() {
+    if (!cloudBackup?.payload) return;
+    if (!window.confirm(t.restoreConfirm)) return;
+    await enqueueLocalPayload(currentPayload(), true);
+    applyPayload(cloudBackup.payload);
+    recordActivity("backup.firebase.restore", lang === "vi" ? `Đã khôi phục Firebase revision ${cloudBackup.revision}` : `Restored Firebase revision ${cloudBackup.revision}`, { revision: cloudBackup.revision });
+    setBackupFeedback(t.restoreSuccess);
+  }
+
+  function handlePrimaryFirebaseBackup() {
+    if (syncStatus === "connecting") return;
+    if (syncCfg) {
+      setBackupFeedback("");
+      uploadFirebaseBackup();
+      return;
+    }
+    setSyncConfigText("");
+    setSyncCodeInput("");
+    setSyncInputError("");
+    openStorageModal();
+  }
+
   const usedColors = new Set(students.map((student) => student.color));
   const nextColor = STUDENT_COLORS.findIndex((_, index) => !usedColors.has(index));
   const suggestedColor = nextColor >= 0 ? nextColor : students.length % STUDENT_COLORS.length;
@@ -990,6 +1437,7 @@ function App() {
   function addStudent() {
     const name = newStudentName.trim();
     if (!name) return;
+    recordActivity("student.add", lang === "vi" ? `Đã thêm học viên ${name}` : `Added student ${name}`, { name, hourlyRate: Math.max(0, Number(newStudentRate) || 0) });
     setStudents((prev) => [
       ...prev,
       { id: uid(), name, color: suggestedColor, hourlyRate: Math.max(0, Number(newStudentRate) || 0) },
@@ -1007,6 +1455,7 @@ function App() {
       setStudentModal({ ...studentModal, error: t.conflictError });
       return;
     }
+    recordActivity("student.edit", lang === "vi" ? `Đã sửa học viên ${name}` : `Edited student ${name}`, { studentId: studentModal.id, before: latestStudent, after: { name, hourlyRate: Math.max(0, Number(studentModal.hourlyRate) || 0), color: studentModal.color } });
     [...sessions, ...Object.values(weekOverrides).flat(), ...Object.values(defaultScheduleVersions).flat()]
       .filter((session) => session.studentIds.includes(studentModal.id))
       .forEach((session) => recordsRefreshSessionIdsRef.current.add(session.id));
@@ -1021,6 +1470,8 @@ function App() {
   }
 
   function removeStudent(id) {
+    const removedStudent = students.find((student) => student.id === id);
+    recordActivity("student.delete", lang === "vi" ? `Đã xóa học viên ${removedStudent?.name || "?"}` : `Deleted student ${removedStudent?.name || "?"}`, { studentId: id, name: removedStudent?.name });
     setStudents((prev) => prev.filter((s) => s.id !== id));
     setSessions((prev) =>
       prev
@@ -1089,11 +1540,15 @@ function App() {
       duration: 60,
       note: "",
       details: "",
+      occurrenceNote: "",
     });
   }
 
   function openEditModal(session) {
-    setModal({ mode: "edit", id: session.id, ...session, duration: Math.max(MIN_DURATION, session.duration), _originalSignature: JSON.stringify(session) });
+    const occurrenceDateValue = dateKey(new Date(viewWeekStart.getFullYear(), viewWeekStart.getMonth(), viewWeekStart.getDate() + session.day));
+    const sourceId = session._sourceSessionId || session.id;
+    const { _occurrenceNote, ...signatureSession } = session;
+    setModal({ mode: "edit", id: session.id, ...session, occurrenceDate: occurrenceDateValue, occurrenceNote: occurrenceNotes[`${occurrenceDateValue}|${sourceId}`] || "", duration: Math.max(MIN_DURATION, session.duration), _originalSignature: JSON.stringify(signatureSession) });
   }
 
   function openHistoricalModal(session) {
@@ -1111,6 +1566,20 @@ function App() {
       duration: session.duration,
       note: session.note || "",
       details: session.details || "",
+      occurrenceNote: occurrenceNotes[`${session._occurrenceDate}|${session._sourceSessionId}`] || session._occurrenceNote || "",
+    });
+  }
+
+  function saveOccurrenceNote(date, sessionId, value) {
+    if (!date || !sessionId) return;
+    const key = `${date}|${sessionId}`;
+    const noteValue = String(value || "").trim();
+    setOccurrenceNotes((previous) => {
+      if (!noteValue && previous[key] === undefined) return previous;
+      const next = { ...previous };
+      if (noteValue) next[key] = noteValue;
+      else delete next[key];
+      return next;
     });
   }
 
@@ -1137,6 +1606,7 @@ function App() {
     };
     if (modal.mode === "history") {
       const baseKey = `${modal.occurrenceDate}|${modal.id}`;
+      saveOccurrenceNote(modal.occurrenceDate, modal.id, modal.occurrenceNote);
       setLessonRecords((previous) => {
         const next = { ...previous };
         modal.studentIds.forEach((studentId) => {
@@ -1148,19 +1618,28 @@ function App() {
         });
         return next;
       });
+      recordActivity("session.history.edit", lang === "vi" ? `Đã sửa buổi học ngày ${modal.occurrenceDate}` : `Edited lesson on ${modal.occurrenceDate}`, { date: modal.occurrenceDate, sessionId: modal.id, pricing: modal.studentPricing, occurrenceNote: modal.occurrenceNote });
       setModal(null);
       return;
     }
     if (modal.mode === "add") {
+      const newSessionId = uid();
+      const occurrenceDateValue = dateKey(new Date(viewWeekStart.getFullYear(), viewWeekStart.getMonth(), viewWeekStart.getDate() + modal.day));
+      saveOccurrenceNote(occurrenceDateValue, newSessionId, modal.occurrenceNote);
+      recordActivity("session.add", lang === "vi" ? `Đã thêm lớp trong tuần ${viewWeekKey}` : `Added class in week ${viewWeekKey}`, { week: viewWeekKey, day: modal.day, start: modal.start, studentIds: modal.studentIds, pricing: modal.studentPricing, occurrenceNote: modal.occurrenceNote });
       updateViewedWeekSessions((prev) => [
         ...prev,
         {
-          id: uid(),
+          id: newSessionId,
           ...sessionValues,
           effectiveFrom: viewWeekKey,
         },
       ]);
     } else {
+      const occurrenceDateValue = dateKey(new Date(viewWeekStart.getFullYear(), viewWeekStart.getMonth(), viewWeekStart.getDate() + modal.day));
+      if (modal.occurrenceDate && modal.occurrenceDate !== occurrenceDateValue) saveOccurrenceNote(modal.occurrenceDate, modal.id, "");
+      saveOccurrenceNote(occurrenceDateValue, modal.id, modal.occurrenceNote);
+      recordActivity("session.edit", lang === "vi" ? `Đã sửa lớp trong tuần ${viewWeekKey}` : `Edited class in week ${viewWeekKey}`, { week: viewWeekKey, sessionId: modal.id, pricing: modal.studentPricing, occurrenceNote: modal.occurrenceNote });
       recordsRefreshSessionIdsRef.current.add(modal.id);
       updateViewedWeekSessions((prev) =>
         prev.map((s) =>
@@ -1175,12 +1654,16 @@ function App() {
 
   function deleteModalSession() {
     if (modal.mode === "history") {
+      recordActivity("session.history.delete", lang === "vi" ? `Đã xóa buổi học ngày ${modal.occurrenceDate}` : `Deleted lesson on ${modal.occurrenceDate}`, { date: modal.occurrenceDate, sessionId: modal.id });
       const prefix = `${modal.occurrenceDate}|${modal.id}|`;
       setAttendance((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(prefix))));
       setLessonRecords((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(prefix))));
+      saveOccurrenceNote(modal.occurrenceDate, modal.id, "");
       setModal(null);
       return;
     }
+    recordActivity("session.delete", lang === "vi" ? `Đã xóa lớp trong tuần ${viewWeekKey}` : `Deleted class in week ${viewWeekKey}`, { week: viewWeekKey, sessionId: modal.id });
+    if (modal.occurrenceDate) saveOccurrenceNote(modal.occurrenceDate, modal.id, "");
     updateViewedWeekSessions((prev) => prev.filter((s) => s.id !== modal.id));
     setModal(null);
   }
@@ -1222,6 +1705,8 @@ function App() {
       newStart = clamp(newStart, START_MIN, END_MIN - MIN_DURATION);
 
       const dayIndex = clamp(Math.floor((e.clientX - ds.rect.left) / ds.colWidth), 0, 6);
+      ds.newDay = dayIndex;
+      ds.newStart = newStart;
 
       updateViewedWeekSessionsRef.current((prev) =>
         prev.map((s) =>
@@ -1235,11 +1720,13 @@ function App() {
   );
 
   const onDragUp = useCallback(() => {
-    const wasMoved = Boolean(dragState.current?.moved);
+    const finishedDrag = dragState.current;
+    const wasMoved = Boolean(finishedDrag?.moved);
     window.removeEventListener("mousemove", onDragMove);
     window.removeEventListener("mouseup", onDragUp);
     dragState.current = null;
     if (wasMoved) {
+      recordActivity("session.move", lang === "vi" ? `Đã di chuyển lớp trong tuần ${viewWeekKey}` : `Moved class in week ${viewWeekKey}`, { week: viewWeekKey, sessionId: finishedDrag.id, fromDay: finishedDrag.origDay, fromStart: finishedDrag.origStart, toDay: finishedDrag.newDay, toStart: finishedDrag.newStart });
       window.setTimeout(() => {
         suppressSessionEditRef.current = false;
       }, 500);
@@ -1266,6 +1753,7 @@ function App() {
       const deltaMinutes = (dy / rowHeight) * 60;
       let newDuration = Math.round((rs.origDuration + deltaMinutes) / SNAP) * SNAP;
       newDuration = clamp(newDuration, MIN_DURATION, END_MIN - START_MIN);
+      rs.newDuration = newDuration;
       updateViewedWeekSessionsRef.current((prev) =>
         prev.map((s) =>
           s.id === rs.id
@@ -1277,9 +1765,13 @@ function App() {
     [rowHeight]
   );
   const onResizeUp = useCallback(() => {
+    const finishedResize = resizeState.current;
     window.removeEventListener("mousemove", onResizeMove);
     window.removeEventListener("mouseup", onResizeUp);
     resizeState.current = null;
+    if (finishedResize?.newDuration && finishedResize.newDuration !== finishedResize.origDuration) {
+      recordActivity("session.resize", lang === "vi" ? `Đã đổi thời lượng lớp trong tuần ${viewWeekKey}` : `Changed class duration in week ${viewWeekKey}`, { week: viewWeekKey, sessionId: finishedResize.id, fromDuration: finishedResize.origDuration, toDuration: finishedResize.newDuration });
+    }
   }, [onResizeMove]);
 
   function onColumnClick(e, dayIndex) {
@@ -1327,6 +1819,7 @@ function App() {
   });
   const activeSessionsForView = weekOverrides[viewWeekKey] || defaultSessionsForView;
   function setViewedWeekAsDefault() {
+    recordActivity("schedule.default", lang === "vi" ? `Đã đặt lịch mặc định từ tuần ${viewWeekKey}` : `Set default schedule from week ${viewWeekKey}`, { week: viewWeekKey });
     // Chụp một bản sao độc lập của đúng lịch đang hiển thị trong tuần được chọn.
     // Các tuần sau sẽ kế thừa bản này, nhưng khi chỉnh một tuần cụ thể thì
     // updateViewedWeekSessions sẽ tạo weekOverrides riêng cho đúng tuần đó.
@@ -1352,36 +1845,12 @@ function App() {
       }, students);
     });
 
-    // Giữ các mốc mặc định trong quá khứ, thay tuần đang chọn bằng mốc mới và
-    // xóa toàn bộ mốc mặc định tương lai để không có lịch cũ chen vào về sau.
-    setDefaultScheduleVersions((previous) => {
-      const next = {};
-      Object.entries(previous).forEach(([weekKey, items]) => {
-        if (weekKey < viewWeekKey) next[weekKey] = items;
-      });
-      next[viewWeekKey] = nextDefault;
-      return next;
-    });
-
-    // Xóa lịch chỉnh riêng của các tuần SAU tuần được chọn. Vì vậy lúc đầu tất cả
-    // tuần sau đều giống hệt lịch mặc định mới. Khi người dùng sửa một tuần sau,
-    // hệ thống sẽ tự tạo override riêng và chỉ tuần đó thay đổi.
-    setWeekOverrides((previous) => Object.fromEntries(
-      Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
-    ));
-
-    // Xóa snapshot và dữ liệu phát sinh theo lịch cũ ở tương lai để giao diện không
-    // hiển thị lại các buổi cũ. Tuần được chọn và toàn bộ quá khứ vẫn được giữ nguyên.
-    const selectedWeekEnd = dateKey(viewWeekDates[6]);
-    setWeeklyClosings((previous) => Object.fromEntries(
-      Object.entries(previous).filter(([weekKey]) => weekKey <= viewWeekKey)
-    ));
-    setAttendance((previous) => Object.fromEntries(
-      Object.entries(previous).filter(([key]) => key.split("|")[0] <= selectedWeekEnd)
-    ));
-    setLessonRecords((previous) => Object.fromEntries(
-      Object.entries(previous).filter(([, record]) => record.date <= selectedWeekEnd)
-    ));
+    // Chỉ thêm/cập nhật mốc lịch mặc định ở tuần đang xem.
+    // Lịch chỉnh riêng, điểm danh, ghi chú và tuần đã chốt luôn được giữ nguyên.
+    setDefaultScheduleVersions((previous) => ({
+      ...previous,
+      [viewWeekKey]: nextDefault,
+    }));
 
     setDefaultScheduleFeedback(t.defaultScheduleSet);
     window.setTimeout(() => setDefaultScheduleFeedback(""), 3500);
@@ -1397,6 +1866,14 @@ function App() {
   const historicalSessionsForView = Array.from(historicalGroupsForView.entries()).map(([groupKey, records]) => {
     const first = records[0];
     const occurrenceDate = new Date(`${first.date}T00:00:00`);
+    const templateSession = scheduleSessions.find((session) =>
+      session.id === first.sessionId && dateKey(viewWeekDates[session.day]) === first.date
+    );
+    const recordByStudentId = Object.fromEntries(records.map((record) => [record.studentId, record]));
+    const studentIds = [...new Set([
+      ...(templateSession?.studentIds || []),
+      ...records.map((record) => record.studentId),
+    ])];
     return {
       id: `history-${groupKey}`,
       _sourceSessionId: first.sessionId,
@@ -1407,25 +1884,38 @@ function App() {
       duration: first.duration,
       note: first.note,
       details: first.details || "",
-      studentId: first.studentId,
-      studentIds: records.map((record) => record.studentId),
-      studentRates: Object.fromEntries(records.map((record) => [record.studentId, record.hourlyRate])),
-      studentPricing: Object.fromEntries(records.map((record) => [record.studentId, {
-        mode: record.pricingMode || "hourly",
-        amount: Number(record.unitPrice ?? record.hourlyRate) || 0,
-      }])),
-      _members: records.map((record) => students.find((student) => student.id === record.studentId) || ({
-        id: record.studentId,
-        name: record.studentName,
-        hourlyRate: record.hourlyRate,
-        color: 0,
+      _occurrenceNote: occurrenceNotes[`${first.date}|${first.sessionId}`] || "",
+      studentId: studentIds[0] || first.studentId,
+      studentIds,
+      studentRates: Object.fromEntries(studentIds.map((studentId) => {
+        const record = recordByStudentId[studentId];
+        return [studentId, Number(record?.hourlyRate ?? templateSession?.studentRates?.[studentId]) || 0];
       })),
+      studentPricing: Object.fromEntries(studentIds.map((studentId) => {
+        const record = recordByStudentId[studentId];
+        const pricing = record
+          ? { mode: record.pricingMode || "hourly", amount: Number(record.unitPrice ?? record.hourlyRate) || 0 }
+          : pricingForStudent(templateSession || {}, scheduleStudentById(studentId));
+        return [studentId, pricing];
+      })),
+      _members: studentIds.map((studentId) => {
+        const record = recordByStudentId[studentId];
+        return scheduleStudentById(studentId) || ({
+          id: studentId,
+          name: record?.studentName || "?",
+          hourlyRate: Number(record?.hourlyRate) || 0,
+          color: 0,
+        });
+      }),
     };
   });
   const historicalOccurrenceKeys = new Set(historicalSessionsForView.map((session) => `${session._occurrenceDate}|${session._sourceSessionId}`));
   const templateSessionsWithoutRecordedOccurrence = scheduleSessions.filter((session) => {
     const occurrenceDate = dateKey(viewWeekDates[session.day]);
     return !historicalOccurrenceKeys.has(`${occurrenceDate}|${session.id}`);
+  }).map((session) => {
+    const occurrenceDate = dateKey(viewWeekDates[session.day]);
+    return { ...session, _occurrenceNote: occurrenceNotes[`${occurrenceDate}|${session.id}`] || "" };
   });
   const visibleSessions = [...templateSessionsWithoutRecordedOccurrence, ...historicalSessionsForView]
     .filter((s) => !filterId || s.studentIds.includes(filterId));
@@ -1449,6 +1939,7 @@ function App() {
 
   function updateLessonStatus(key, session, student, status) {
     if (weeklyClosings[weekKeyForDateString(key.slice(0, 10))]) return;
+    recordActivity("attendance.update", lang === "vi" ? `Đã cập nhật điểm danh ${student?.name || "?"}: ${status}` : `Updated attendance for ${student?.name || "?"}: ${status}`, { key, sessionId: session.id, studentId: student?.id, status });
     const updatedRecord = status === "planned" ? null : lessonRecordFromTemplate(key, session, student, status);
     setAttendance((prev) => ({ ...prev, [key]: status }));
     setLessonRecords((prev) => {
@@ -1476,6 +1967,7 @@ function App() {
 
   function finishCloseWeek() {
     if (closeWeekModal?.mode === "reopen") {
+      recordActivity("week.reopen", lang === "vi" ? `Đã mở lại tuần ${viewWeekKey}` : `Reopened week ${viewWeekKey}`, { week: viewWeekKey });
       // Khôi phục đúng lịch đã được chốt (sessionsSnapshot) thành một weekOverride riêng cho tuần này,
       // thay vì để tuần rơi về lịch mặc định/đè hiện tại. Nếu không làm vậy, khi lịch mặc định đã
       // thay đổi kể từ lúc chốt tuần, mở lại tuần cũ sẽ hiển thị SAI lịch (không đúng buổi đã dạy thật).
@@ -1494,6 +1986,7 @@ function App() {
       setCloseWeekModal(null);
       return;
     }
+    recordActivity("week.close", lang === "vi" ? `Đã chốt tuần ${viewWeekKey}` : `Closed week ${viewWeekKey}`, { week: viewWeekKey, ...viewWeekSummary });
     setWeeklyClosings((prev) => ({
       ...prev,
       [viewWeekKey]: {
@@ -1539,6 +2032,7 @@ function App() {
         duration: record.duration,
         note: record.note,
         details: record.details || "",
+        _occurrenceNote: occurrenceNotes[`${record.date}|${record.sessionId}`] || "",
         studentPricing: { [record.studentId]: { mode: record.pricingMode || "hourly", amount: Number(record.unitPrice ?? record.hourlyRate) || 0 } },
       },
       student: { ...student, name: record.studentName, hourlyRate: Number(record.unitPrice ?? record.hourlyRate) || 0 },
@@ -1578,7 +2072,7 @@ function App() {
             payrollOccurrences.push({
               key,
               date,
-              session: { ...session, studentId },
+              session: { ...session, studentId, _occurrenceNote: occurrenceNotes[`${lessonDate}|${session.id}`] || "" },
               student: student ? { ...student, hourlyRate: pricing.amount } : null,
               pricingMode: pricing.mode,
               unitPrice: pricing.amount,
@@ -1606,8 +2100,11 @@ function App() {
     const rows = payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed");
     const rates = [...new Set(rows.map((item) => Number(item.student?.hourlyRate) || 0))];
     const priceDescriptions = [...new Set(rows.map((item) => `${item.pricingMode || "hourly"}|${Number(item.unitPrice ?? item.student?.hourlyRate) || 0}`))];
+    const paymentKey = `${payrollMonth}|${student.id}`;
     return {
       student,
+      paymentKey,
+      paid: Boolean(tuitionPayments[paymentKey]),
       sessions: rows.length,
       minutes: rows.reduce((sum, item) => sum + item.session.duration, 0),
       amount: rows.reduce((sum, item) => sum + item.amount, 0),
@@ -1615,12 +2112,41 @@ function App() {
       priceDescription: priceDescriptions.length === 1 ? priceDescriptions[0] : null,
     };
   }).filter((row) => row.sessions > 0);
+  function toggleTuitionPayment(row) {
+    recordActivity(row.paid ? "payment.undo" : "payment.paid", row.paid
+      ? (lang === "vi" ? `Đã hoàn tác thanh toán của ${row.student.name} tháng ${payrollMonth}` : `Undid payment for ${row.student.name} in ${payrollMonth}`)
+      : (lang === "vi" ? `Đã thanh toán học phí của ${row.student.name} tháng ${payrollMonth}` : `Marked ${row.student.name} paid for ${payrollMonth}`),
+      { month: payrollMonth, studentId: row.student.id, amount: row.amount });
+    setTuitionPayments((previous) => {
+      const next = { ...previous };
+      if (next[row.paymentKey]) {
+        delete next[row.paymentKey];
+      } else {
+        next[row.paymentKey] = {
+          month: payrollMonth,
+          studentId: row.student.id,
+          studentName: row.student.name,
+          amount: row.amount,
+          paidAt: Date.now(),
+        };
+      }
+      return next;
+    });
+  }
   const attendanceDetailRows = Array.from(payrollStudents.values()).map((student) => ({
     student,
     attended: payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "completed"),
     absent: payrollOccurrences.filter((item) => item.student?.id === student.id && item.status === "cancelled"),
   })).filter((row) => row.attended.length || row.absent.length);
   const payrollTotal = payrollRows.reduce((sum, row) => sum + row.amount, 0);
+
+  if (!localHydrated) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center" style={{ background: "#F3F5F7", color: "#6B7A99" }}>
+        <div className="text-sm font-medium">{t.loadingData}</div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1637,6 +2163,27 @@ function App() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrimaryFirebaseBackup}
+            disabled={syncStatus === "connecting"}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap hover:opacity-90 transition disabled:opacity-60"
+            style={{
+              background: syncStatus === "error" ? "#E03131" : backupFeedback === t.backupSuccess ? "#087F5B" : "#12B886",
+              color: "#FFFFFF",
+            }}
+            title={syncCfg ? t.uploadCloud : t.syncTitle}
+          >
+            <Cloud size={16} />
+            <span>{
+              syncStatus === "connecting"
+                ? t.syncConnecting
+                : syncStatus === "error"
+                ? t.syncError
+                : backupFeedback === t.backupSuccess
+                ? t.backupSuccess
+                : t.uploadCloud
+            }</span>
+          </button>
           <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "#25365C", color: "#F3F5F7" }}>
             <button
               onClick={() => setViewWeekStart((current) => { const previous = new Date(current); previous.setDate(current.getDate() - 7); return previous; })}
@@ -1677,7 +2224,7 @@ function App() {
                 setSyncConfigText("");
                 setSyncCodeInput(syncCfg?.syncCode || "");
                 setSyncInputError("");
-                setSyncModalOpen(true);
+                openStorageModal();
               }}
               className="p-2.5 hover:opacity-80 transition"
               style={{
@@ -1739,6 +2286,15 @@ function App() {
           >
             <Wallet size={16} />
             <span className="hidden sm:inline">{t.payroll}</span>
+          </button>
+          <button
+            onClick={() => setActivityLogOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
+            style={{ background: "#495A78", color: "#FFFFFF" }}
+            title={t.activityLog}
+          >
+            <History size={16} />
+            <span className="hidden sm:inline">{t.activityLog}</span>
           </button>
         </div>
       </div>
@@ -1879,28 +2435,28 @@ function App() {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex border-b" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
-            <div className="w-14 shrink-0" />
-            <div className="flex-1 grid grid-cols-7">
-              {t.dayLabels.map((d, i) => (
-                <div
-                  key={d}
-                  className="py-2.5 text-center text-sm font-medium border-l"
-                  style={{
-                    borderColor: "#DDE3E8",
-                    color: isCurrentWeek && i === todayIndex ? "#1B2A4A" : "#6B7A99",
-                    background: isCurrentWeek && i === todayIndex ? "#EAF0FF" : "transparent",
-                  }}
-                >
-                  <span className="hidden sm:inline">{d}</span>
-                  <span className="sm:hidden">{t.dayShort[i]}</span>
-                  <div className="text-[10px] font-mono mt-0.5 opacity-70">{String(viewWeekDates[i].getDate()).padStart(2, "0")}/{String(viewWeekDates[i].getMonth() + 1).padStart(2, "0")}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ background: "#FFFFFF" }}>
+            <div className="sticky top-0 z-30 flex border-b" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>
+              <div className="w-14 shrink-0" />
+              <div className="flex-1 grid grid-cols-7">
+                {t.dayLabels.map((d, i) => (
+                  <div
+                    key={d}
+                    className="py-2.5 text-center text-sm font-medium border-l"
+                    style={{
+                      borderColor: "#DDE3E8",
+                      color: isCurrentWeek && i === todayIndex ? "#1B2A4A" : "#6B7A99",
+                      background: isCurrentWeek && i === todayIndex ? "#EAF0FF" : "transparent",
+                    }}
+                  >
+                    <span className="hidden sm:inline">{d}</span>
+                    <span className="sm:hidden">{t.dayShort[i]}</span>
+                    <div className="text-[10px] font-mono mt-0.5 opacity-70">{String(viewWeekDates[i].getDate()).padStart(2, "0")}/{String(viewWeekDates[i].getMonth() + 1).padStart(2, "0")}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex" style={{ height: totalHeight }}>
               <div className="w-14 shrink-0 relative" style={{ color: "#8896AC" }}>
                 {HOURS.map((h) => (
@@ -1958,7 +2514,10 @@ function App() {
                           })
                         );
                         const completedCount = Object.values(memberStatuses).filter((status) => status === "completed").length;
+                        const cancelledCount = Object.values(memberStatuses).filter((status) => status === "cancelled").length;
                         const taught = members.length > 0 && completedCount === members.length;
+                        const allCancelled = members.length > 0 && cancelledCount === members.length;
+                        const partialAttendance = members.length > 1 && new Set(Object.values(memberStatuses)).size > 1;
                         return (
                           <div
                             key={s.id}
@@ -1972,21 +2531,42 @@ function App() {
                                 else openEditModal(s);
                               }
                             }}
-                            className="absolute rounded-md pl-1.5 pr-7 py-1 overflow-hidden select-none shadow-sm"
+                            className={`absolute rounded-md ${partialAttendance ? "pl-6" : "pl-1.5"} pr-7 overflow-hidden select-none shadow-sm ${compact ? "py-0.5" : "py-1"}`}
                             style={{
                               ...overlapStyleFor(s),
                               top,
                               height,
-                              background: c.bg,
+                              backgroundColor: c.bg,
+                              backgroundImage: "none",
+                              border: "1px solid transparent",
                               color: "#fff",
+                              opacity: 1,
                               cursor: viewedWeekClosing ? "default" : (s._historical ? "pointer" : "grab"),
                               zIndex: 5,
                             }}
                           >
+                            {allCancelled && (
+                              <div
+                                className="absolute left-1 right-1 top-1/2 h-0.5 -translate-y-1/2 pointer-events-none z-20 rounded"
+                                style={{ background: "rgba(255,255,255,0.95)" }}
+                                title={t.cancelledClassIndicator}
+                                aria-label={t.cancelledClassIndicator}
+                              />
+                            )}
+                            {partialAttendance && (
+                              <div
+                                className={`absolute left-1 rounded-full flex items-center justify-center text-[11px] font-bold pointer-events-none z-20 ${compact ? "top-1/2 -translate-y-1/2 w-4 h-4" : "top-1 w-4 h-4"}`}
+                                style={{ background: "#F59F00", color: "#FFFFFF" }}
+                                title={t.partialAttendanceIndicator}
+                                aria-label={t.partialAttendanceIndicator}
+                              >
+                                !
+                              </div>
+                            )}
                             <button
                               type="button"
                               disabled={Boolean(viewedWeekClosing)}
-                              className="absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center cursor-pointer"
+                              className={`absolute right-1 rounded flex items-center justify-center cursor-pointer ${compact ? "top-1/2 -translate-y-1/2 w-4 h-4" : "top-1 w-5 h-5"}`}
                               style={{ background: taught ? "#FFFFFF" : "rgba(255,255,255,0.88)", opacity: viewedWeekClosing ? 0.55 : 1, cursor: viewedWeekClosing ? "not-allowed" : "pointer" }}
                               title={t.markTaught}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -2051,7 +2631,7 @@ function App() {
                                 aria-label={t.markTaught}
                               />
                             </button>
-                            <div className="text-[11px] font-semibold leading-tight truncate">
+                            <div className="text-[11px] font-semibold leading-tight truncate" style={{ textDecoration: allCancelled ? "line-through" : "none" }}>
                               {s.note || (members.length === 1 ? members[0]?.name : `${members.length} ${t.students.toLowerCase()}`)}
                             </div>
                             {!compact && (
@@ -2062,6 +2642,11 @@ function App() {
                             {!compact && (
                               <div className="text-[10px] leading-tight opacity-80 truncate">
                                 {members.length === 1 ? members[0]?.name : `${completedCount}/${members.length} ${t.completed.toLowerCase()}`}
+                              </div>
+                            )}
+                            {!compact && s._occurrenceNote && (
+                              <div className="text-[10px] leading-tight mt-0.5 truncate font-medium" title={s._occurrenceNote}>
+                                📝 {s._occurrenceNote}
                               </div>
                             )}
                             {!s._historical && (
@@ -2297,6 +2882,21 @@ function App() {
                   className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
                   style={{ borderColor: "#DDE3E8" }}
                 />
+              </div>
+
+              <div className="rounded-lg p-3" style={{ background: "#FFF9E6", border: "1px solid #FFE8A1" }}>
+                <label className="text-xs font-medium" style={{ color: "#A65F00" }}>{t.occurrenceNote}</label>
+                <textarea
+                  value={modal.occurrenceNote || ""}
+                  onChange={(e) => setModal({ ...modal, occurrenceNote: e.target.value })}
+                  placeholder={t.occurrenceNotePlaceholder}
+                  rows={2}
+                  className="w-full mt-1.5 px-3 py-2 rounded-lg text-sm border outline-none"
+                  style={{ borderColor: "#FFE8A1", background: "#FFFFFF" }}
+                />
+                <div className="text-[11px] mt-1" style={{ color: "#A65F00" }}>
+                  {modal.mode === "history" ? modal.occurrenceDate : dateKey(new Date(viewWeekStart.getFullYear(), viewWeekStart.getMonth(), viewWeekStart.getDate() + modal.day))}
+                </div>
               </div>
 
               <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#8896AC" }}>
@@ -2585,6 +3185,12 @@ function App() {
             </div>
 
             <div className="overflow-y-auto p-4 sm:p-5">
+              <div
+                className="mb-4 rounded-lg border px-3 py-2.5 text-sm font-medium"
+                style={{ background: "#EAF0FF", borderColor: "#AFC6F5", color: "#1B2A4A" }}
+              >
+                {t.payrollCalculationNote}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 <div className="rounded-lg p-3" style={{ background: "#F3F5F7" }}>
                   <div className="text-xs" style={{ color: "#6B7A99" }}>{t.attendanceCount}</div>
@@ -2604,7 +3210,7 @@ function App() {
                 <div className="overflow-x-auto border rounded-lg mb-5" style={{ borderColor: "#DDE3E8" }}>
                   <table className="w-full text-sm">
                     <thead style={{ background: "#F3F5F7", color: "#6B7A99" }}>
-                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.attendanceCount}</th><th className="text-right px-3 py-2">{t.billableHours}</th><th className="text-right px-3 py-2">{t.lessonPrice}</th><th className="text-right px-3 py-2">{t.totalAmount}</th></tr>
+                      <tr><th className="text-left px-3 py-2">{t.students}</th><th className="text-right px-3 py-2">{t.attendanceCount}</th><th className="text-right px-3 py-2">{t.billableHours}</th><th className="text-right px-3 py-2">{t.lessonPrice}</th><th className="text-right px-3 py-2">{t.totalAmount}</th><th className="text-center px-3 py-2">{t.paymentStatus}</th></tr>
                     </thead>
                     <tbody>
                       {payrollRows.map((row) => (
@@ -2616,6 +3222,21 @@ function App() {
                             ? `${formatMoney(Number(row.priceDescription.split("|")[1]), lang)}/${row.priceDescription.startsWith("fixed|") ? (lang === "vi" ? "buổi" : "lesson") : (lang === "vi" ? "giờ" : "hour")}`
                             : "—"}</td>
                           <td className="px-3 py-2 text-right font-semibold">{formatMoney(row.amount, lang)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => toggleTuitionPayment(row)}
+                              title={row.paid ? t.undoPayment : t.markPaid}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border"
+                              style={{
+                                background: row.paid ? "#E4FBF3" : "#FFFFFF",
+                                borderColor: row.paid ? "#12B886" : "#B7C2D0",
+                                color: row.paid ? "#087F5B" : "#6B7A99",
+                              }}
+                            >
+                              {row.paid && <Check size={13} />}
+                              {row.paid ? t.paid : t.markPaid}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2660,6 +3281,7 @@ function App() {
                       <div className="text-sm font-medium truncate">{item.student?.name || "?"}</div>
                       <div className="text-xs truncate" style={{ color: "#6B7A99" }}>{item.session.note || `${item.session.duration} ${lang === "vi" ? "phút" : "min"}`} · {formatMoney(calculatedLessonFee(item.session, item.student), lang)}</div>
                       {item.session.details && <div className="text-xs mt-1" style={{ color: "#8896AC" }}>{item.session.details}</div>}
+                      {item.session._occurrenceNote && <div className="text-xs mt-1 font-medium" style={{ color: "#A65F00" }}>📝 {item.session._occurrenceNote}</div>}
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       {[
@@ -2691,6 +3313,34 @@ function App() {
         </div>
       )}
 
+      {activityLogOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: "rgba(27,42,74,0.5)" }} onClick={() => setActivityLogOpen(false)}>
+          <div className="w-full max-w-2xl rounded-xl shadow-xl overflow-hidden" style={{ background: "#FFFFFF", maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b flex items-center justify-between gap-3" style={{ borderColor: "#DDE3E8" }}>
+              <h2 className="text-base font-semibold flex items-center gap-2"><History size={17} /> {t.activityLog}</h2>
+              <div className="flex items-center gap-2">
+                {activityLogs.length > 0 && <button onClick={() => { if (window.confirm(t.clearLogConfirm)) setActivityLogs([]); }} className="px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "#FFECEC", color: "#E03131" }}>{t.clearLog}</button>}
+                <button onClick={() => setActivityLogOpen(false)} style={{ color: "#6B7A99" }}><X size={18} /></button>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(88vh - 65px)" }}>
+              {activityLogs.length === 0 && <div className="text-sm text-center py-8" style={{ color: "#6B7A99" }}>{t.noActivity}</div>}
+              <div className="flex flex-col gap-2">
+                {activityLogs.map((entry) => (
+                  <div key={entry.id} className="rounded-lg border p-3" style={{ borderColor: "#DDE3E8" }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-sm font-medium">{entry.message}</div>
+                      <div className="text-[11px] whitespace-nowrap" style={{ color: "#8896AC" }}>{new Date(entry.at).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                    </div>
+                    <div className="text-[11px] mt-1 font-mono" style={{ color: "#6B7A99" }}>{entry.type}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {syncModalOpen && (
         <div
           className="fixed inset-0 flex items-center justify-center z-50 p-4"
@@ -2698,8 +3348,8 @@ function App() {
           onClick={() => setSyncModalOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-xl p-5 shadow-xl"
-            style={{ background: "#FFFFFF" }}
+            className="w-full max-w-lg rounded-xl p-5 shadow-xl overflow-y-auto"
+            style={{ background: "#FFFFFF", maxHeight: "92vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -2715,8 +3365,51 @@ function App() {
               {t.syncIntro}
             </p>
 
+            <div className="rounded-lg border p-3 mb-4" style={{ borderColor: "#DDE3E8", background: "#FBFCFE" }}>
+              <div className="text-sm font-semibold mb-1">{t.localBackup}</div>
+              <div className="text-xs mb-3" style={{ color: "#087F5B" }}>{t.localPrimary}</div>
+              <div className="text-xs mb-3" style={{ color: localSaveStatus === "error" ? "#E03131" : "#6B7A99" }}>
+                {localSaveStatus === "saving" ? t.localSaving : localSaveStatus === "error" ? t.localSaveError : t.localSaved}
+                {localSaveStatus === "saved" && lastLocalSavedAt ? ` · ${new Date(lastLocalSavedAt).toLocaleTimeString(lang === "vi" ? "vi-VN" : "en-US")}` : ""}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button onClick={exportLocalBackup} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#1B2A4A", color: "#FFFFFF" }}>{t.exportBackup}</button>
+                <button onClick={() => importBackupRef.current?.click()} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.importBackup}</button>
+                <input ref={importBackupRef} type="file" accept="application/json,.json" onChange={previewImportedBackup} className="hidden" />
+              </div>
+              <div className="text-xs font-medium mt-3 mb-1.5" style={{ color: "#6B7A99" }}>{t.recentSnapshots}</div>
+              {localSnapshots.length === 0 && <div className="text-xs" style={{ color: "#8896AC" }}>{t.noSnapshots}</div>}
+              <div className="flex flex-col gap-1.5">
+                {localSnapshots.slice(0, 5).map((snapshot) => (
+                  <div key={snapshot.id} className="flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: "#FFFFFF" }}>
+                    <div className="flex-1 min-w-0 text-xs">
+                      <div>{new Date(snapshot.savedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                      <div style={{ color: "#8896AC" }}>{snapshot.summary.students} {t.students.toLowerCase()} · {snapshot.summary.lessons} {lang === "vi" ? "bản ghi" : "records"}</div>
+                    </div>
+                    <button onClick={() => restoreLocalSnapshot(snapshot)} className="px-2 py-1 rounded text-xs" style={{ background: "#FFF4E0", color: "#A65F00" }}>{t.restoreBackup}</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {backupPreview && (
+              <div className="rounded-lg border p-3 mb-4" style={{ borderColor: "#F59F00", background: "#FFF9E6" }}>
+                <div className="text-sm font-semibold mb-2">{t.backupPreview}</div>
+                <div className="text-xs mb-3" style={{ color: "#6B7A99" }}>
+                  {backupPreview.summary.students} {t.students.toLowerCase()} · {backupPreview.summary.sessions} {lang === "vi" ? "lớp" : "classes"} · {backupPreview.summary.lessons} {lang === "vi" ? "bản ghi" : "records"}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setBackupPreview(null)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: "#FFFFFF" }}>{t.cancel}</button>
+                  <button onClick={restorePreviewedBackup} className="px-3 py-1.5 rounded-lg text-sm text-white" style={{ background: "#F59F00" }}>{t.restoreBackup}</button>
+                </div>
+              </div>
+            )}
+
+            {backupFeedback && <div className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: backupFeedback === t.cloudConflict || backupFeedback === t.backupInvalid ? "#FFF4E0" : "#E4FBF3", color: backupFeedback === t.cloudConflict || backupFeedback === t.backupInvalid ? "#A65F00" : "#087F5B" }}>{backupFeedback}</div>}
+
             {syncCfg ? (
               <div className="flex flex-col gap-3">
+                <div className="text-sm font-semibold">{t.firebaseBackup}</div>
                 <div>
                   <label className="text-xs font-medium" style={{ color: "#6B7A99" }}>
                     {t.syncedAs}
@@ -2728,13 +3421,17 @@ function App() {
                     {syncCfg.syncCode}
                   </div>
                 </div>
-                <button
-                  onClick={copySyncLink}
-                  className="px-3 py-2 rounded-lg text-sm text-white font-medium"
-                  style={{ background: "#1B2A4A" }}
-                >
-                  {t.copyLink}
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  <button onClick={checkFirebaseBackup} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.checkCloud}</button>
+                </div>
+                {cloudBackup && (
+                  <div className="rounded-lg p-3 text-xs" style={{ background: "#F3F5F7", color: "#6B7A99" }}>
+                    <div>Revision {cloudBackup.revision} · {new Date(cloudBackup.updatedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                    <div className="mt-1">{cloudBackup.summary?.students || 0} {t.students.toLowerCase()} · {cloudBackup.summary?.sessions || 0} {lang === "vi" ? "lớp" : "classes"} · {cloudBackup.summary?.lessons || 0} {lang === "vi" ? "bản ghi" : "records"}</div>
+                    <button onClick={restoreFirebaseBackup} className="mt-2 px-3 py-1.5 rounded-lg text-sm" style={{ background: "#FFF4E0", color: "#A65F00" }}>{t.restoreCloud}</button>
+                  </div>
+                )}
+                <button onClick={copySyncLink} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.copyLink}</button>
                 {copyFeedback && (
                   <div className="text-xs break-all" style={{ color: "#6B7A99" }}>
                     {copyFeedback}
