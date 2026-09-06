@@ -93,7 +93,10 @@ const TRANSLATIONS = {
     invalidTime: "Buổi học phải kết thúc trước hoặc đúng 23:00.",
     overlapWarning: "Cảnh báo: thời gian này đang trùng với một lớp khác. Bạn vẫn có thể lưu nếu đây là chủ ý.",
     setDefaultSchedule: "Đặt lịch mặc định",
-    defaultScheduleSet: "Đã đặt tuần này làm lịch mặc định cho các tuần tiếp theo.",
+    defaultScheduleHelp: "Áp dụng lịch tuần này cho các tuần sau, kể cả tuần đã chỉnh riêng. Giữ dữ liệu đã điểm danh và tuần đã chốt.",
+    defaultScheduleSet: "Đã áp dụng lịch mặc định cho các tuần sau, kể cả tuần đã chỉnh riêng. Dữ liệu đã điểm danh và tuần đã chốt được giữ nguyên.",
+    defaultScheduleRetry: "Dữ liệu vừa thay đổi. Hãy bấm đặt lịch mặc định lại.",
+    defaultScheduleError: "Chưa thể lưu bản dự phòng trên máy. Lịch chưa thay đổi; hãy thử lại.",
     hourlyPricing: "Tính theo giờ",
     fixedPricing: "Giá trọn buổi",
     sessionNote: "Ghi chú chung của lớp",
@@ -241,7 +244,10 @@ const TRANSLATIONS = {
     invalidTime: "The lesson must end by 23:00.",
     overlapWarning: "Warning: this time overlaps another class. You can still save if this is intentional.",
     setDefaultSchedule: "Set default schedule",
-    defaultScheduleSet: "This week is now the default schedule for future weeks.",
+    defaultScheduleHelp: "Apply this week's schedule to later weeks, including customized weeks. Keep recorded lessons and closed weeks.",
+    defaultScheduleSet: "Default schedule applied to later weeks, including customized weeks. Recorded lessons and closed weeks are preserved.",
+    defaultScheduleRetry: "Data changed while saving. Please set the default schedule again.",
+    defaultScheduleError: "Could not save a local recovery copy. The schedule is unchanged; please try again.",
     hourlyPricing: "Hourly rate",
     fixedPricing: "Fixed lesson fee",
     sessionNote: "General class note",
@@ -710,6 +716,7 @@ function App() {
     ])
   ));
   const [defaultScheduleFeedback, setDefaultScheduleFeedback] = useState("");
+  const [defaultScheduleSaving, setDefaultScheduleSaving] = useState(false);
   const [filterId, setFilterId] = useState(null);
   const [rowHeight, setRowHeight] = useState(savedData?.rowHeight || 56);
   const [modal, setModal] = useState(null);
@@ -780,10 +787,14 @@ function App() {
   const lastSyncedStateRef = useRef(null);
   const remoteReadyRef = useRef(false);
   const recordsRefreshSessionIdsRef = useRef(new Set());
+  const defaultScheduleInFlightRef = useRef(false);
+  const defaultScheduleFeedbackTimerRef = useRef(null);
+  const latestPayloadRef = useRef(null);
 
   function currentPayload() {
     return { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance };
   }
+  latestPayloadRef.current = currentPayload();
 
   function recordActivity(type, message, details = {}) {
     setActivityLogs((previous) => [{ id: uid(), type, message, details, at: Date.now(), deviceId: deviceIdRef.current }, ...previous].slice(0, 1000));
@@ -840,8 +851,8 @@ function App() {
     return () => clearInterval(t2);
   }, []);
 
-  // Refresh records only after an explicit class/student edit. Merely reopening a
-  // week must never apply the current recurring template to historical lessons.
+  // Refresh only the week being edited. A later default replacement must not
+  // retroactively reprice recorded lessons when the same class is edited elsewhere.
   useEffect(() => {
     const editedIds = recordsRefreshSessionIdsRef.current;
     if (!editedIds.size) return;
@@ -850,9 +861,9 @@ function App() {
       let changed = false;
       const next = { ...previous };
       Object.entries(previous).forEach(([key, record]) => {
-        if (weeklyClosings[weekKeyForDateString(record.date)]) return;
-        if (!editedIds.has(record.sessionId)) return;
         const recordWeekKey = weekKeyForDateString(record.date);
+        if (recordWeekKey !== viewWeekKey || weeklyClosings[recordWeekKey]) return;
+        if (!editedIds.has(record.sessionId)) return;
         const recordDefaultVersionKey = Object.keys(defaultScheduleVersions).filter((key) => key <= recordWeekKey).sort().pop();
         const recordWeekSessions = weekOverrides[recordWeekKey] || (recordDefaultVersionKey ? defaultScheduleVersions[recordDefaultVersionKey] : sessions);
         const session = recordWeekSessions.find((item) => item.id === record.sessionId);
@@ -2090,11 +2101,15 @@ function App() {
     return occurrenceDate >= (session.effectiveFrom || "1970-01-01");
   });
   const activeSessionsForView = weekOverrides[viewWeekKey] || defaultSessionsForView;
-  function setViewedWeekAsDefault() {
-    recordActivity("schedule.default", lang === "vi" ? `Đã đặt lịch mặc định từ tuần ${viewWeekKey}` : `Set default schedule from week ${viewWeekKey}`, { week: viewWeekKey });
-    // Chụp một bản sao độc lập của đúng lịch đang hiển thị trong tuần được chọn.
-    // Các tuần sau sẽ kế thừa bản này, nhưng khi chỉnh một tuần cụ thể thì
-    // updateViewedWeekSessions sẽ tạo weekOverrides riêng cho đúng tuần đó.
+  async function setViewedWeekAsDefault() {
+    if (defaultScheduleInFlightRef.current) return;
+    defaultScheduleInFlightRef.current = true;
+    setDefaultScheduleSaving(true);
+    window.clearTimeout(defaultScheduleFeedbackTimerRef.current);
+    setDefaultScheduleFeedback("");
+    const before = currentPayload();
+    const beforeSignature = JSON.stringify(before);
+    // Copy the full week's template, regardless of the student filter.
     const sourceSessions = viewedWeekClosing?.sessionsSnapshot || activeSessionsForView;
     const nextDefault = sourceSessions.map((session) => {
       const {
@@ -2117,15 +2132,38 @@ function App() {
       }, students);
     });
 
-    // Chỉ thêm/cập nhật mốc lịch mặc định ở tuần đang xem.
-    // Lịch chỉnh riêng, điểm danh, ghi chú và tuần đã chốt luôn được giữ nguyên.
-    setDefaultScheduleVersions((previous) => ({
-      ...previous,
-      [viewWeekKey]: nextDefault,
-    }));
-
-    setDefaultScheduleFeedback(t.defaultScheduleSet);
-    window.setTimeout(() => setDefaultScheduleFeedback(""), 3500);
+    try {
+      // Keep a recoverable copy before replacing customized future schedules.
+      await enqueueLocalPayload(before, true);
+      if (JSON.stringify(latestPayloadRef.current) !== beforeSignature) {
+        setDefaultScheduleFeedback(t.defaultScheduleRetry);
+        return;
+      }
+      // Later defaults and week overrides must no longer shadow the new template.
+      // Keep the source/earlier weeks and all closed-week snapshots intact.
+      const replacedWeeks = Object.keys(weekOverrides).filter((key) => key > viewWeekKey && !weeklyClosings[key]);
+      const replacedDefaults = Object.keys(defaultScheduleVersions).filter((key) => key > viewWeekKey);
+      setDefaultScheduleVersions((previous) => ({
+        ...Object.fromEntries(Object.entries(previous).filter(([key]) => key < viewWeekKey)),
+        [viewWeekKey]: nextDefault,
+      }));
+      setWeekOverrides((previous) => Object.fromEntries(
+        Object.entries(previous).filter(([key]) => key <= viewWeekKey || weeklyClosings[key])
+      ));
+      recordActivity("schedule.default", lang === "vi"
+        ? `Đã áp dụng lịch mặc định từ tuần ${viewWeekKey} cho các tuần sau, kể cả tuần đã chỉnh riêng`
+        : `Applied the default schedule from week ${viewWeekKey} to later weeks, including customized weeks`,
+        { week: viewWeekKey, replacedWeeks, replacedDefaults });
+      setDefaultScheduleFeedback(t.defaultScheduleSet);
+    } catch (error) {
+      console.warn("Could not save schedule recovery copy:", error);
+      setLocalSaveStatus("error");
+      setDefaultScheduleFeedback(t.defaultScheduleError);
+    } finally {
+      defaultScheduleInFlightRef.current = false;
+      setDefaultScheduleSaving(false);
+      defaultScheduleFeedbackTimerRef.current = window.setTimeout(() => setDefaultScheduleFeedback(""), 6000);
+    }
   }
   const scheduleSessions = viewedWeekClosing?.sessionsSnapshot || activeSessionsForView;
   const historicalGroupsForView = new Map();
@@ -2531,9 +2569,11 @@ function App() {
             <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.14)" }} />
             <button
               onClick={setViewedWeekAsDefault}
-              className="p-2.5 hover:opacity-80 transition relative"
-              style={{ color: defaultScheduleFeedback ? "#63E6BE" : "#F3F5F7" }}
-              title={defaultScheduleFeedback || t.setDefaultSchedule}
+              disabled={defaultScheduleSaving}
+              className="p-2.5 hover:opacity-80 transition relative disabled:opacity-60"
+              style={{ color: defaultScheduleFeedback === t.defaultScheduleSet ? "#63E6BE" : "#F3F5F7" }}
+              aria-label={t.setDefaultSchedule}
+              title={defaultScheduleSaving ? t.localSaving : defaultScheduleFeedback || t.defaultScheduleHelp}
             >
               <Clock3 size={16} />
             </button>
@@ -2589,6 +2629,7 @@ function App() {
             </button>
           </div>
         </div>
+        {defaultScheduleFeedback && <div role="status" className="w-full text-xs" style={{ color: "#F3F5F7" }}>{defaultScheduleFeedback}</div>}
       </div>
 
       <div className="flex flex-1 flex-col md:flex-row min-h-0">
