@@ -3584,16 +3584,21 @@ function App() {
                     {attendanceDetailRows.map((row) => (
                       <div key={row.student.id} className="border rounded-lg p-3" style={{ borderColor: "#DDE3E8" }}>
                         <div className="text-sm font-semibold mb-2">{row.student.name}</div>
-                        <div className="text-xs mb-1" style={{ color: "#087F5B" }}>{t.attendedDates}: {row.attended.length || 0}</div>
+                        <div className="flex items-center justify-between gap-3 text-xs mb-1" style={{ color: "#087F5B" }}>
+                          <span>{t.attendedDates}: {row.attended.length || 0}</span>
+                          <span className="shrink-0">{t.totalAmount}</span>
+                        </div>
                         {row.attended.map((item) => (
-                          <div key={`attended-${item.key}`} className="text-xs ml-2 mb-0.5">
-                            {item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}
+                          <div key={`attended-${item.key}`} className="flex justify-between items-baseline gap-3 text-xs ml-2 mb-0.5">
+                            <span className="min-w-0 break-words">{item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}</span>
+                            <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums" style={{ color: "#087F5B" }}>{formatMoney(item.amount, lang)}</span>
                           </div>
                         ))}
                         <div className="text-xs mt-2 mb-1" style={{ color: "#E03131" }}>{t.absentDates}: {row.absent.length || 0}</div>
                         {row.absent.map((item) => (
-                          <div key={`absent-${item.key}`} className="text-xs ml-2 mb-0.5">
-                            {item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}
+                          <div key={`absent-${item.key}`} className="flex justify-between items-baseline gap-3 text-xs ml-2 mb-0.5">
+                            <span className="min-w-0 break-words">{item.date.toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US")} · {fmtTime(item.session.start)}–{fmtTime(item.session.start + item.session.duration)} · {item.session.note || "—"}</span>
+                            <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums" style={{ color: "#6B7A99" }}>{formatMoney(item.amount, lang)}</span>
                           </div>
                         ))}
                       </div>
