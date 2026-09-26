@@ -648,6 +648,38 @@ function migrateLegacyAttendance(attendance, sessions, students) {
 const SYNC_CFG_KEY = "tutor_schedule_sync_cfg";
 const CLOUD_META_KEY_PREFIX = "tutor_schedule_cloud_meta_";
 const AUTO_BACKUP_DELAY = 5000;
+const SYNC_ERROR_LOG_KEY = "tutor_schedule_sync_errors_v1";
+function loadSyncErrors() {
+  try {
+    const entries = JSON.parse(localStorage.getItem(SYNC_ERROR_LOG_KEY) || "[]");
+    return Array.isArray(entries) ? entries.filter((entry) => entry && typeof entry.message === "string" && typeof entry.code === "string" && Number.isFinite(entry.at)).slice(0, 10) : [];
+  } catch (error) { return []; }
+}
+function makeSyncError(error, operation, config = {}) {
+  const redact = (value) => {
+    let text = String(value || "");
+    Object.values(config || {}).filter((secret) => typeof secret === "string" && secret.length >= 3)
+      .sort((a, b) => b.length - a.length).forEach((secret) => { text = text.split(secret).join("[hidden]"); });
+    return text.replace(/https?:\/\/[^\s]+/gi, "[URL hidden]")
+      .replace(/AIza[\w-]+/g, "[key hidden]")
+      .replace(/(Bearer\s+)[^\s]+/gi, "$1[hidden]");
+  };
+  return { id: uid(), at: Date.now(), operation, code: redact(error?.code || (error?.name !== "Error" && error?.name) || "unknown").slice(0, 120), message: redact(error?.message || error || "Unknown error").slice(0, 1500), count: 1 };
+}
+function syncErrorExplanation(entry, lang) {
+  const code = entry.code.replace(/^firestore\//, "");
+  const explanations = {
+    "permission-denied": ["Firebase từ chối quyền đọc hoặc ghi. Kiểm tra quyền truy cập và cấu hình Firebase.", "Firebase denied access. Check permissions and configuration."],
+    "unauthenticated": ["Firebase yêu cầu xác thực để truy cập dữ liệu.", "Firebase requires authentication."],
+    "unavailable": ["Không kết nối được Firebase. Kiểm tra mạng rồi thử lại.", "Firebase is unavailable. Check your connection and retry."],
+    "resource-exhausted": ["Firebase đã vượt giới hạn tài nguyên hoặc hạn mức sử dụng.", "Firebase resource or usage limits were exceeded."],
+    "cloud-conflict": ["Bản Firebase đã thay đổi so với bản máy này biết. Sao lưu tự động đã tạm dừng. Hãy xuất file dự phòng trước khi lấy dữ liệu về máy.", "Firebase has changed since this device last synced. Automatic backup is paused. Export a recovery file before downloading cloud data."],
+    "QuotaExceededError": ["Bộ nhớ trình duyệt không đủ để lưu bản dự phòng trên máy.", "Browser storage is full; the local recovery copy could not be saved."],
+  };
+  if (explanations[code]) return explanations[code][lang === "vi" ? 0 : 1];
+  if (entry.message.includes("payload is missing")) return lang === "vi" ? "Bản sao lưu Firebase thiếu dữ liệu để khôi phục." : "The Firebase backup is missing its data.";
+  return lang === "vi" ? "Thao tác gặp lỗi. Xem thông báo kỹ thuật bên dưới hoặc sao chép để gửi kiểm tra." : "The operation failed. Review or copy the technical message below.";
+}
 const FIREBASE_PERSISTENCE_APPS = new Set();
 function loadSyncCfg() {
   try {
@@ -763,6 +795,39 @@ function App() {
   const [localSnapshots, setLocalSnapshots] = useState([]);
   const [activityLogs, setActivityLogs] = useState(savedData?.activityLogs || []);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [syncErrors, setSyncErrors] = useState(loadSyncErrors);
+  const [syncErrorCopyFeedback, setSyncErrorCopyFeedback] = useState("");
+  useEffect(() => {
+    try { localStorage.setItem(SYNC_ERROR_LOG_KEY, JSON.stringify(syncErrors)); } catch (error) { /* Keep the in-memory log when storage is unavailable. */ }
+  }, [syncErrors]);
+  function reportSyncError(operation, error) {
+    const entry = makeSyncError(error, operation, syncCfg);
+    setSyncErrors((previous) => {
+      const latest = previous[0];
+      if (latest && latest.operation === entry.operation && latest.code === entry.code && latest.message === entry.message) {
+        return [{ ...entry, id: latest.id, count: (latest.count || 1) + 1 }, ...previous.slice(1)];
+      }
+      return [entry, ...previous].slice(0, 10);
+    });
+  }
+  function syncErrorOperation(operation) {
+    const labels = {
+      connect: ["Kết nối Firebase", "Connect to Firebase"], check: ["Kiểm tra bản Firebase", "Check Firebase backup"],
+      upload: ["Sao lưu lên Firebase", "Upload backup"], automatic: ["Tự động sao lưu", "Automatic backup"],
+      download: ["Đồng bộ về máy", "Download latest backup"], restore: ["Khôi phục bản Firebase", "Restore Firebase backup"],
+      cleanup: ["Dọn phiên bản Firebase", "Clean up Firebase versions"],
+    };
+    return labels[operation]?.[lang === "vi" ? 0 : 1] || operation;
+  }
+  async function copySyncErrors() {
+    const text = syncErrors.map((entry) => `${new Date(entry.at).toISOString()} | ${syncErrorOperation(entry.operation)} | ${entry.code} | x${entry.count || 1}\n${syncErrorExplanation(entry, lang)}\n${entry.message}`).join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setSyncErrorCopyFeedback(lang === "vi" ? "Đã sao chép lỗi." : "Errors copied.");
+    } catch (error) {
+      setSyncErrorCopyFeedback(lang === "vi" ? "Không thể sao chép tự động. Bạn có thể chọn nội dung lỗi bên dưới để sao chép." : "Could not copy automatically. Select and copy the error text below.");
+    }
+  }
 
   const gridRef = useRef(null);
   const importBackupRef = useRef(null);
@@ -925,6 +990,7 @@ function App() {
         setAutoBackupRetryToken((value) => value + 1);
       } catch (error) {
         console.warn("Could not prepare Firebase backup:", error);
+        reportSyncError("connect", error);
         setSyncStatus("error");
         setAutoBackupStatus("offline");
       }
@@ -1507,6 +1573,7 @@ function App() {
           autoBackupBlockedRef.current = true;
           setAutoBackupStatus("conflict");
           setBackupFeedback(t.cloudConflict);
+          reportSyncError("check", { code: "cloud-conflict", message: "Cloud revision differs from the revision known by this device." });
           setSyncStatus("conflict");
           return;
         }
@@ -1514,6 +1581,7 @@ function App() {
       setSyncStatus("synced");
     } catch (error) {
       console.warn("Could not check Firebase backup:", error);
+      reportSyncError("check", error);
       setSyncStatus("error");
     }
   }
@@ -1598,11 +1666,12 @@ function App() {
         recordActivity("backup.firebase.upload", lang === "vi" ? `Đã sao lưu Firebase revision ${nextRevision}` : `Backed up Firebase revision ${nextRevision}`, { revision: nextRevision });
         window.setTimeout(() => setBackupFeedback((current) => current === t.backupSuccess ? "" : current), 3500);
       }
-      trimFirebaseVersions(ref).catch((error) => console.warn("Could not trim old Firebase backups:", error));
+      trimFirebaseVersions(ref).catch((error) => { console.warn("Could not trim old Firebase backups:", error); reportSyncError("cleanup", error); });
       setAutoBackupRetryToken((value) => value + 1);
     } catch (error) {
+      reportSyncError(automatic ? "automatic" : "upload", error);
       if (stagedVersionRef) {
-        deleteFirebaseVersion(stagedVersionRef).catch((cleanupError) => console.warn("Could not clean staged Firebase backup:", cleanupError));
+        deleteFirebaseVersion(stagedVersionRef).catch((cleanupError) => { console.warn("Could not clean staged Firebase backup:", cleanupError); reportSyncError("cleanup", cleanupError); });
       }
       if (error?.code === "cloud-conflict" || error?.message === "cloud-conflict") {
         autoBackupBlockedRef.current = true;
@@ -1644,6 +1713,7 @@ function App() {
       setAutoBackupRetryToken((value) => value + 1);
     } catch (error) {
       console.warn("Could not restore Firebase backup:", error);
+      reportSyncError("restore", error);
       setSyncStatus("error");
     }
   }
@@ -1696,6 +1766,7 @@ function App() {
       setAutoBackupRetryToken((value) => value + 1);
     } catch (error) {
       console.warn("Could not sync latest Firebase backup:", error);
+      reportSyncError("download", error);
       setSyncStatus("error");
     }
   }
@@ -2538,6 +2609,11 @@ function App() {
               }</span>
             </button>
           </div>
+          {syncErrors.length > 0 && (syncStatus === "error" || syncStatus === "conflict") && (
+            <button onClick={openStorageModal} className="px-2 py-1 rounded text-xs underline" style={{ color: "#FFD8A8" }}>
+              {lang === "vi" ? "Chi tiết lỗi" : "Error details"}
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCloseWeekModal({ confirmed: false, mode: viewedWeekClosing ? "reopen" : "close" })}
@@ -3702,6 +3778,29 @@ function App() {
             <p className="text-xs mb-3" style={{ color: "#6B7A99" }}>
               {t.syncIntro}
             </p>
+
+            <section className="rounded-lg border p-3 mb-4" style={{ borderColor: syncErrors.length ? "#F5C2A0" : "#DDE3E8", background: syncErrors.length ? "#FFF9F2" : "#FBFCFE" }}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-semibold">{lang === "vi" ? "Lỗi đồng bộ gần đây" : "Recent sync errors"}</h3>
+                {syncErrors.length > 0 && <button onClick={copySyncErrors} className="text-xs px-2 py-1 rounded border" style={{ borderColor: "#DDE3E8", background: "#FFFFFF" }}>{lang === "vi" ? "Sao chép lỗi" : "Copy errors"}</button>}
+              </div>
+              <p className="text-xs mb-2" style={{ color: "#6B7A99" }}>{lang === "vi" ? "Giữ 10 lỗi gần nhất trên máy này; lịch sử lỗi vẫn còn sau khi đồng bộ thành công." : "The last 10 errors are stored on this device, including after successful sync."}</p>
+              {syncErrors.length === 0 && <div className="text-xs" style={{ color: "#6B7A99" }}>{lang === "vi" ? "Chưa ghi nhận lỗi đồng bộ." : "No sync errors recorded."}</div>}
+              {syncErrorCopyFeedback && <div role="status" className="text-xs mb-2">{syncErrorCopyFeedback}</div>}
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {syncErrors.map((entry, index) => (
+                  <details key={entry.id} open={index === 0} className="rounded border p-2 text-xs" style={{ borderColor: "#E8D6C7", background: "#FFFFFF" }}>
+                    <summary className="cursor-pointer break-words">
+                      <span className="font-semibold">{syncErrorOperation(entry.operation)}</span> · {new Date(entry.at).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}
+                      {entry.count > 1 && <span> · {entry.count} {lang === "vi" ? "lần" : "times"}</span>}
+                    </summary>
+                    <div className="mt-2" style={{ color: "#A65F00" }}>{syncErrorExplanation(entry, lang)}</div>
+                    <div className="mt-1 break-all font-mono">{entry.code}</div>
+                    <pre className="mt-1 whitespace-pre-wrap break-words select-text font-mono" style={{ overflowWrap: "anywhere", color: "#6B7A99" }}>{entry.message}</pre>
+                  </details>
+                ))}
+              </div>
+            </section>
 
             <div className="rounded-lg border p-3 mb-4" style={{ borderColor: "#DDE3E8", background: "#FBFCFE" }}>
               <div className="text-sm font-semibold mb-1">{t.localBackup}</div>
