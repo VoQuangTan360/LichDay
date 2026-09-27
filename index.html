@@ -173,7 +173,7 @@ const TRANSLATIONS = {
     checkCloud: "Kiểm tra bản trên Firebase",
     uploadCloud: "Sao lưu lên Firebase",
     syncLatestCloud: "Đồng bộ về máy",
-    syncLatestConfirm: "Lấy bản mới nhất từ Firebase về máy? Dữ liệu hiện tại sẽ được lưu thành snapshot trước khi thay thế.",
+    syncLatestConfirm: "Đối chiếu với bản mới nhất trên Firebase trước khi chọn tải về máy.",
     syncLatestSuccess: "Đã lấy dữ liệu mới nhất.",
     autoBackupTitle: "Tự động sao lưu",
     autoBackupIdle: "Chưa có thay đổi mới",
@@ -181,7 +181,7 @@ const TRANSLATIONS = {
     autoBackupSaving: "Đang tự động sao lưu…",
     autoBackupSaved: "Đã tự động sao lưu",
     autoBackupOffline: "Chưa sao lưu được, sẽ tự thử lại",
-    autoBackupConflict: "Firebase có bản mới từ thiết bị khác. Tự động sao lưu đã tạm dừng.",
+    autoBackupConflict: "Tự động sao lưu tạm dừng. Bấm Sao lưu lên Firebase hoặc Đồng bộ về máy để đối chiếu dữ liệu.",
     restoreCloud: "Khôi phục từ Firebase",
     noCloudBackup: "Chưa có bản backup nào trên Firebase.",
     cloudConflict: "Firebase có phiên bản mới hơn. Hãy kiểm tra trước khi sao lưu để tránh ghi đè.",
@@ -324,7 +324,7 @@ const TRANSLATIONS = {
     checkCloud: "Check Firebase backup",
     uploadCloud: "Back up to Firebase",
     syncLatestCloud: "Sync to this device",
-    syncLatestConfirm: "Load the latest Firebase backup onto this device? Current data will be saved as a snapshot before replacement.",
+    syncLatestConfirm: "Compare with the latest Firebase backup before choosing to download it.",
     syncLatestSuccess: "Latest Firebase data loaded.",
     autoBackupTitle: "Automatic backup",
     autoBackupIdle: "No new changes",
@@ -332,7 +332,7 @@ const TRANSLATIONS = {
     autoBackupSaving: "Backing up automatically…",
     autoBackupSaved: "Automatically backed up",
     autoBackupOffline: "Not backed up yet; retrying automatically",
-    autoBackupConflict: "Firebase has a newer version from another device. Automatic backup is paused.",
+    autoBackupConflict: "Automatic backup is paused. Choose Upload or Download to compare the data.",
     restoreCloud: "Restore from Firebase",
     noCloudBackup: "No Firebase backup exists yet.",
     cloudConflict: "Firebase has a newer revision. Check it before uploading to avoid overwriting data.",
@@ -485,6 +485,19 @@ const DEVICE_ID_KEY = "tutor_schedule_device_id";
 const LOCAL_SNAPSHOT_INTERVAL = 5 * 60 * 1000;
 const MANUAL_SYNC_ONLY = true;
 let LOCAL_SAVE_QUEUE = Promise.resolve();
+let LOCAL_WRITE_ALLOWED = false;
+
+function assertLocalWriter() {
+  if (!LOCAL_WRITE_ALLOWED) throw new Error("Tab này chưa có quyền ghi dữ liệu. Hãy đóng tab lịch khác và thử lại.");
+}
+
+function cloudRequest(promise) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(Object.assign(new Error("Firebase chưa phản hồi. Kiểm tra lại kết quả trước khi thử ghi tiếp."), { code: "sync-timeout" })), 20000);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
+}
 
 function getDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
@@ -516,9 +529,12 @@ async function idbRequest(storeName, mode, action) {
     const transaction = db.transaction(storeName, mode);
     const store = transaction.objectStore(storeName);
     const request = action(store);
-    request.onsuccess = () => resolve(request.result);
+    let result;
+    request.onsuccess = () => { result = request.result; };
     request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => db.close();
+    transaction.oncomplete = () => { db.close(); resolve(result); };
+    transaction.onabort = () => { db.close(); reject(transaction.error || new Error("Local save aborted")); };
+    transaction.onerror = () => reject(transaction.error || new Error("Local save failed"));
   });
 }
 
@@ -527,28 +543,42 @@ const idbPut = (store, value) => idbRequest(store, "readwrite", (objectStore) =>
 const idbGetAll = (store) => idbRequest(store, "readonly", (objectStore) => objectStore.getAll());
 const idbDelete = (store, id) => idbRequest(store, "readwrite", (objectStore) => objectStore.delete(id));
 
-async function persistLocalPayload(payload, forceSnapshot = false) {
+async function persistLocalPayload(payload, forceSnapshot = false, syncBaseline = null) {
+  assertLocalWriter();
   const savedAt = Date.now();
   const current = await idbGet("state", LOCAL_STATE_KEY);
   const revision = Number(current?.revision || 0) + 1;
-  await idbPut("state", { id: LOCAL_STATE_KEY, payload, savedAt, revision, schemaVersion: 4 });
+  assertLocalWriter();
+  const cloudBaselines = { ...current?.cloudBaselines };
+  if (syncBaseline) cloudBaselines[syncBaseline.scope] = syncBaseline.meta;
   const meta = await idbGet("meta", "snapshots");
   if (forceSnapshot || !meta?.lastSnapshotAt || savedAt - meta.lastSnapshotAt >= LOCAL_SNAPSHOT_INTERVAL) {
     await idbPut("snapshots", { id: String(savedAt), payload, savedAt, revision, schemaVersion: 4 });
     await idbPut("meta", { id: "snapshots", lastSnapshotAt: savedAt });
     const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt);
-    await Promise.all(snapshots.slice(10).map((snapshot) => idbDelete("snapshots", snapshot.id)));
+    await Promise.all(snapshots.filter((snapshot) => !snapshot.protected).slice(10).map((snapshot) => idbDelete("snapshots", snapshot.id)));
   }
+  // Publish payload and its accepted cloud baseline together, only after all
+  // fallible snapshot work. A snapshot failure must not partially replace state.
+  assertLocalWriter();
+  await idbPut("state", { id: LOCAL_STATE_KEY, payload, cloudBaselines, savedAt, revision, schemaVersion: 4 });
   return { savedAt, revision };
 }
 
-function enqueueLocalPayload(payload, forceSnapshot = false) {
+function enqueueLocalPayload(payload, forceSnapshot = false, syncBaseline = null) {
   const stablePayload = typeof structuredClone === "function"
     ? structuredClone(payload)
     : JSON.parse(JSON.stringify(payload));
   LOCAL_SAVE_QUEUE = LOCAL_SAVE_QUEUE
     .catch(() => {})
-    .then(() => persistLocalPayload(stablePayload, forceSnapshot));
+    .then(() => persistLocalPayload(stablePayload, forceSnapshot, syncBaseline));
+  return LOCAL_SAVE_QUEUE;
+}
+function saveRecoverySnapshot(payload, reason) {
+  const copy = JSON.parse(JSON.stringify(payload));
+  LOCAL_SAVE_QUEUE = LOCAL_SAVE_QUEUE.catch(() => {}).then(() => { assertLocalWriter(); return idbPut("snapshots", {
+    id: `recovery-${Date.now()}-${uid()}`, payload: copy, savedAt: Date.now(), schemaVersion: 4, protected: true, reason,
+  }); });
   return LOCAL_SAVE_QUEUE;
 }
 function loadSaved() {
@@ -701,19 +731,19 @@ function readSyncCfgFromHash() {
 function randomSyncCode() {
   return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
 }
-function cloudMetaKey(syncCode) {
-  return `${CLOUD_META_KEY_PREFIX}${syncCode || ""}`;
+function cloudMetaKey(syncCode, projectId) {
+  return `${CLOUD_META_KEY_PREFIX}v2:${JSON.stringify([projectId || "", syncCode || ""])}`;
 }
-function loadCloudMeta(syncCode) {
+function loadCloudMeta(syncCode, projectId) {
   try {
-    return JSON.parse(localStorage.getItem(cloudMetaKey(syncCode)) || "null");
+    return JSON.parse(localStorage.getItem(cloudMetaKey(syncCode, projectId)) || "null");
   } catch (error) {
     return null;
   }
 }
-function saveCloudMeta(syncCode, meta) {
+function saveCloudMeta(syncCode, meta, projectId) {
   try {
-    localStorage.setItem(cloudMetaKey(syncCode), JSON.stringify(meta));
+    localStorage.setItem(cloudMetaKey(syncCode, projectId), JSON.stringify(meta));
   } catch (error) {}
 }
 function fingerprintText(text) {
@@ -726,6 +756,96 @@ function fingerprintText(text) {
 }
 function payloadFingerprint(payload) {
   return fingerprintText(JSON.stringify(payload));
+}
+const SYNC_DATA_FIELDS = ["students", "sessions", "weekOverrides", "defaultScheduleVersions", "attendance", "lessonRecords", "weeklyClosings", "tuitionPayments", "occurrenceNotes"];
+function stableSyncJSON(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSyncJSON).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSyncJSON(value[key])}`).join(",")}}`;
+  return JSON.stringify(value ?? null);
+}
+function syncDataFingerprint(payload) {
+  const data = Object.fromEntries(SYNC_DATA_FIELDS.map((key) => [key, payload?.[key] || (key === "students" || key === "sessions" ? [] : {})]));
+  data.sessions = data.sessions.map((session) => normalizeSession(session, data.students));
+  for (const field of ["weekOverrides", "defaultScheduleVersions"]) data[field] = Object.fromEntries(Object.entries(data[field]).map(([key, list]) => [key, list.map((session) => normalizeSession(session, data.students))]));
+  data.lessonRecords = normalizeLessonRecords(data.lessonRecords);
+  return `data-v1:${fingerprintText(stableSyncJSON(data))}`;
+}
+function cloudHeadToken(manifest) {
+  return manifest ? stableSyncJSON([manifest.revision || 0, manifest.versionId || "", manifest.fingerprint || ""]) : "missing";
+}
+function chooseCloudBaseline(stored, cached, hadLocalData) {
+  if (!hadLocalData) return null;
+  return stored ? { ...stored, paused: Boolean(stored.paused || (cached?.contentFingerprint === stored.contentFingerprint && cached?.paused)) } : cached;
+}
+function syncUploadDecision(localFingerprint, remoteFingerprint, baseline, remoteExists, paused = false) {
+  if (remoteExists && localFingerprint === remoteFingerprint) return "same";
+  if (!paused && remoteExists && baseline && baseline === localFingerprint) return "download";
+  if (paused) return "compare";
+  if (!remoteExists) return baseline ? "compare" : "upload";
+  return baseline && baseline === remoteFingerprint ? "upload" : "compare";
+}
+function syncDataIssues(data) {
+  const issues = [];
+  const attendance = data?.attendance || {}, records = data?.lessonRecords || {};
+  for (const key of new Set([...Object.keys(attendance), ...Object.keys(records)])) {
+    const status = attendance[key], record = records[key];
+    const [date, sessionId, studentId] = key.split("|");
+    const name = (data?.students || []).find((student) => student.id === studentId)?.name || record?.studentName || studentId;
+    const label = `${date} · ${name} · lớp ${sessionId}`;
+    if ((status === "completed" || status === "cancelled") && !record) issues.push(`${label}: thiếu bản ghi buổi học / Missing lesson record`);
+    else if (record && status !== record.status) issues.push(`${label}: điểm danh và bản ghi không khớp / Attendance mismatch`);
+  }
+  return issues;
+}
+function assertSyncDataConsistent(data) {
+  validateSyncPayload(data);
+  const issues = syncDataIssues(data);
+  if (issues.length) throw Object.assign(new Error("Dữ liệu điểm danh cần kiểm tra / Attendance needs review"), { code: "inconsistent-data", issues });
+}
+function validateSyncPayload(data) {
+  if (!data || !Array.isArray(data.students) || !Array.isArray(data.sessions)) throw new Error("Invalid backup: students/sessions missing");
+  if (data.students.some((student) => !student || typeof student.id !== "string" || typeof student.name !== "string")) throw new Error("Invalid backup: students");
+  for (const field of SYNC_DATA_FIELDS.slice(2)) {
+    if (data[field] != null && (typeof data[field] !== "object" || Array.isArray(data[field]))) throw new Error(`Invalid backup: ${field}`);
+  }
+  for (const list of [data.sessions, ...Object.values(data.weekOverrides || {}), ...Object.values(data.defaultScheduleVersions || {})]) {
+    if (!Array.isArray(list) || list.some((s) => !s?.id || !Number.isInteger(s.day) || s.day < 0 || s.day > 6 || !Number.isFinite(s.start) || !Number.isFinite(s.duration))) throw new Error("Invalid backup: schedule entries");
+  }
+  for (const [key, status] of Object.entries(data.attendance || {})) {
+    if (key.split("|").length !== 3 || !["planned", "completed", "cancelled"].includes(status)) throw new Error("Unsupported attendance format; preserve this backup for conversion.");
+  }
+  for (const [key, record] of Object.entries(data.lessonRecords || {})) {
+    if (!record || record.key !== key || !record.studentId || key !== `${record.date}|${record.sessionId}|${record.studentId}` || !/^\d{4}-\d{2}-\d{2}$/.test(record.date) || !Number.isFinite(record.amount) || !Number.isFinite(record.start) || !Number.isFinite(record.duration) || !["completed", "cancelled"].includes(record.status)) throw new Error("Invalid backup: lesson record");
+  }
+  return data;
+}
+function compareSyncData(local, remote) {
+  const months = new Map();
+  const differences = [];
+  for (const [side, payload] of [["local", local], ["remote", remote]]) {
+    for (const record of Object.values(payload?.lessonRecords || {})) {
+      const month = record.date.slice(0, 7);
+      if (!months.has(month)) months.set(month, { month, local: { count: 0, amount: 0 }, remote: { count: 0, amount: 0 } });
+      if (record.status === "completed") { months.get(month)[side].count++; months.get(month)[side].amount += record.amount; }
+    }
+  }
+  for (const field of SYNC_DATA_FIELDS) {
+    const asMap = (payload) => field === "students" || field === "sessions" ? itemsById(payload?.[field] || []) : payload?.[field] || {};
+    const left = asMap(local), right = asMap(remote);
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      if (stableSyncJSON(left[key]) === stableSyncJSON(right[key])) continue;
+      const record = field === "lessonRecords" ? left[key] || right[key] : null;
+      differences.push({ field, key, local: left[key], remote: right[key], kind: !(key in right) ? "local" : !(key in left) ? "remote" : "changed", label: record ? `${record.date} · ${record.studentName || record.studentId}` : field === "students" ? (left[key]?.name || right[key]?.name || key) : key });
+    }
+  }
+  return { months: [...months.values()].sort((a, b) => b.month.localeCompare(a.month)), differences };
+}
+function syncDifferenceText(value, field, lang) {
+  if (value === undefined) return lang === "vi" ? "Không có" : "Missing";
+  const statuses = lang === "vi" ? { completed: "Đã học", cancelled: "Đã nghỉ", planned: "Chưa học" } : { completed: "Completed", cancelled: "Cancelled", planned: "Planned" };
+  if (field === "attendance") return statuses[value] || String(value);
+  if (field === "lessonRecords") return `${statuses[value.status] || value.status} · ${formatMoney(value.unitPrice ?? value.hourlyRate, lang)}/${value.pricingMode === "fixed" ? (lang === "vi" ? "buổi" : "lesson") : (lang === "vi" ? "giờ" : "hour")} · ${fmtTime(value.start)}–${fmtTime(value.start + value.duration)} · ${formatMoney(value.amount, lang)}`;
+  return lang === "vi" ? "Có dữ liệu" : "Present";
 }
 
 function App() {
@@ -786,11 +906,25 @@ function App() {
   const [syncInputError, setSyncInputError] = useState("");
   const [copyFeedback, setCopyFeedback] = useState("");
   const [localHydrated, setLocalHydrated] = useState(false);
+  const [tabWriter, setTabWriter] = useState(false);
+  const [startupError, setStartupError] = useState("");
+  const [startupRetry, setStartupRetry] = useState(0);
+  const [dataIssues, setDataIssues] = useState([]);
+  const [pendingUpload, setPendingUpload] = useState(null);
+  const [cloudMetaReady, setCloudMetaReady] = useState(false);
+  const pendingUploadRef = useRef(null);
+  const pendingAttemptsRef = useRef(0);
+  const verifyPendingRef = useRef(null);
+  const savedBusinessRef = useRef("");
+  const hadLocalDataRef = useRef(false);
+  const openingCloudCheckRef = useRef("");
   const [localSaveStatus, setLocalSaveStatus] = useState("loading");
   const [lastLocalSavedAt, setLastLocalSavedAt] = useState(null);
   const [backupPreview, setBackupPreview] = useState(null);
   const [cloudBackup, setCloudBackup] = useState(null);
   const [cloudBackups, setCloudBackups] = useState([]);
+  const [syncComparison, setSyncComparison] = useState(null);
+  const [syncBusy, setSyncBusy] = useState(false);
   const [backupFeedback, setBackupFeedback] = useState("");
   const [localSnapshots, setLocalSnapshots] = useState([]);
   const [activityLogs, setActivityLogs] = useState(savedData?.activityLogs || []);
@@ -801,6 +935,7 @@ function App() {
     try { localStorage.setItem(SYNC_ERROR_LOG_KEY, JSON.stringify(syncErrors)); } catch (error) { /* Keep the in-memory log when storage is unavailable. */ }
   }, [syncErrors]);
   function reportSyncError(operation, error) {
+    if (error.issues) setDataIssues(error.issues);
     const entry = makeSyncError(error, operation, syncCfg);
     setSyncErrors((previous) => {
       const latest = previous[0];
@@ -834,7 +969,10 @@ function App() {
   const deviceIdRef = useRef(getDeviceId());
   const knownCloudRevisionRef = useRef(0);
   const lastCloudFingerprintRef = useRef("");
+  const syncScopeRef = useRef("");
+  syncScopeRef.current = JSON.stringify([syncCfg?.projectId, syncCfg?.syncCode]);
   const autoBackupBlockedRef = useRef(false);
+  const cloudUpdateAvailableRef = useRef(false);
   const cloudUploadInFlightRef = useRef(false);
   const scrollRef = useRef(null);
   const dragState = useRef(null);
@@ -860,6 +998,7 @@ function App() {
     return { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance };
   }
   latestPayloadRef.current = currentPayload();
+  const businessFingerprint = syncDataFingerprint(currentPayload());
 
   function recordActivity(type, message, details = {}) {
     setActivityLogs((previous) => [{ id: uid(), type, message, details, at: Date.now(), deviceId: deviceIdRef.current }, ...previous].slice(0, 1000));
@@ -885,31 +1024,58 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!navigator.locks?.request) {
+      setStartupError("Trình duyệt chưa hỗ trợ khóa an toàn. Hãy mở bằng Chrome hoặc Edge qua HTTPS.");
+      return;
+    }
+    const controller = new AbortController();
+    let release;
+    navigator.locks.request(LOCAL_DB_NAME + "-writer", { signal: controller.signal }, async () => {
+      if (cancelled) return;
+      LOCAL_WRITE_ALLOWED = true;
+      setTabWriter(true);
+      await new Promise((resolve) => { release = resolve; });
+      await LOCAL_SAVE_QUEUE.catch(() => {});
+      LOCAL_WRITE_ALLOWED = false;
+    }).catch((error) => { if (!cancelled) setStartupError(error.message); });
+    return () => { cancelled = true; controller.abort(); if (release) release(); };
+  }, []);
+
+  useEffect(() => {
+    if (!tabWriter) return;
+    let cancelled = false;
+    setStartupError("");
+    setLocalHydrated(false);
     idbGet("state", LOCAL_STATE_KEY)
       .then(async (record) => {
         if (cancelled) return;
         if (record?.payload) {
+          hadLocalDataRef.current = true;
+          validateSyncPayload(record.payload);
           applyPayload(record.payload);
           setLastLocalSavedAt(record.savedAt || null);
         } else if (savedData) {
+          hadLocalDataRef.current = true;
+          validateSyncPayload(savedData);
           const saved = await enqueueLocalPayload(savedData, true);
           setLastLocalSavedAt(saved.savedAt);
         }
         try { localStorage.removeItem(STORAGE_KEY); } catch (error) {}
+        if (!cancelled) setLocalHydrated(true);
       })
       .catch((error) => {
         console.warn("Could not load IndexedDB data:", error);
         setLocalSaveStatus("error");
+        setStartupError("Không đọc được dữ liệu máy. Đã chặn lưu và đồng bộ: " + error.message);
       })
       .finally(() => {
         if (!cancelled) {
-          setLocalHydrated(true);
           setLocalSaveStatus((status) => status === "error" ? status : "saved");
         }
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line
-  }, []);
+  }, [tabWriter, startupRetry]);
 
   useEffect(() => {
     const t2 = setInterval(() => setNow(new Date()), 60000);
@@ -970,12 +1136,14 @@ function App() {
       dbRef.current = null;
       setCloudBackup(null);
       setCloudBackups([]);
-      const cloudMeta = loadCloudMeta(syncCfg?.syncCode);
+      const cloudMeta = loadCloudMeta(syncCfg?.syncCode, syncCfg?.projectId);
       knownCloudRevisionRef.current = Number(cloudMeta?.revision || 0);
-      lastCloudFingerprintRef.current = cloudMeta?.fingerprint || "";
-      autoBackupBlockedRef.current = false;
+      lastCloudFingerprintRef.current = cloudMeta?.contentFingerprint || "";
+      autoBackupBlockedRef.current = Boolean(cloudMeta?.paused);
+      cloudUpdateAvailableRef.current = false;
+      setSyncComparison(null);
       setLastCloudSavedAt(cloudMeta?.savedAt || null);
-      setAutoBackupStatus(cloudMeta?.fingerprint ? "saved" : "idle");
+      setAutoBackupStatus(cloudMeta?.paused ? "conflict" : "idle");
       if (!syncCfg?.apiKey || !syncCfg?.projectId || !syncCfg?.syncCode) {
         setSyncStatus("offline");
         setAutoBackupStatus("idle");
@@ -1223,11 +1391,12 @@ function App() {
   // IndexedDB is the single source of truth. Writes are serialized by LOCAL_SAVE_QUEUE.
   useEffect(() => {
     const payload = { students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance };
-    if (localHydrated) {
+    if (localHydrated && tabWriter) {
       setLocalSaveStatus("saving");
       enqueueLocalPayload(payload)
         .then((saved) => {
           setLastLocalSavedAt(saved.savedAt);
+          savedBusinessRef.current = syncDataFingerprint(payload);
           setLocalSaveStatus("saved");
         })
         .catch((error) => {
@@ -1269,12 +1438,12 @@ function App() {
         console.warn("Atomic sync failed:", error);
         setSyncStatus("error");
       });
-  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance, localHydrated]);
+  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance, localHydrated, tabWriter]);
 
   // Firebase is backup-only: changes wait for a quiet 5-second window, then upload one-way.
   useEffect(() => {
-    if (!MANUAL_SYNC_ONLY || !localHydrated || !syncCfg?.syncCode || !dbRef.current || autoBackupBlockedRef.current) return;
-    const fingerprint = payloadFingerprint(currentPayload());
+    if (!MANUAL_SYNC_ONLY || !localHydrated || !tabWriter || !cloudMetaReady || localSaveStatus !== "saved" || pendingUpload || !syncCfg?.syncCode || !dbRef.current || autoBackupBlockedRef.current || cloudUpdateAvailableRef.current) return;
+    const fingerprint = businessFingerprint;
     if (fingerprint === lastCloudFingerprintRef.current) {
       setAutoBackupStatus("saved");
       return;
@@ -1289,7 +1458,7 @@ function App() {
     }, AUTO_BACKUP_DELAY);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line
-  }, [students, sessions, weekOverrides, defaultScheduleVersions, attendance, lessonRecords, weeklyClosings, tuitionPayments, occurrenceNotes, activityLogs, lang, rowHeight, quickAttendance, localHydrated, syncCfg?.syncCode, autoBackupRetryToken]);
+  }, [businessFingerprint, localHydrated, tabWriter, cloudMetaReady, localSaveStatus, pendingUpload, syncCfg?.projectId, syncCfg?.syncCode, autoBackupRetryToken]);
 
   useEffect(() => {
     const retryWhenOnline = () => {
@@ -1365,6 +1534,7 @@ function App() {
   }, [weeklyClosings]);
 
   function connectSync() {
+    if (cloudUploadInFlightRef.current || pendingUploadRef.current) { setSyncInputError("Hãy hoàn tất xác minh sao lưu trước khi đổi cấu hình."); return; }
     try {
       const cfg = JSON.parse(
         syncConfigText
@@ -1386,6 +1556,7 @@ function App() {
   }
 
   function disconnectSync() {
+    if (cloudUploadInFlightRef.current || pendingUploadRef.current) { setBackupFeedback("Hãy xác minh xong lần sao lưu đang chờ trước khi ngắt kết nối."); return; }
     recordActivity("firebase.disconnect", lang === "vi" ? "Đã ngắt cấu hình Firebase" : "Disconnected Firebase configuration", { syncCode: syncCfg?.syncCode });
     setSyncCfg(null);
     setSyncModalOpen(false);
@@ -1419,7 +1590,7 @@ function App() {
   async function openStorageModal() {
     setSyncModalOpen(true);
     try {
-      const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt).slice(0, 10);
+      const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt);
       setLocalSnapshots(snapshots.map((snapshot) => ({ ...snapshot, summary: backupSummary(snapshot.payload) })));
     } catch (error) {
       console.warn("Could not list local snapshots:", error);
@@ -1428,12 +1599,37 @@ function App() {
 
   async function restoreLocalSnapshot(snapshot) {
     if (!window.confirm(t.restoreConfirm)) return;
-    await enqueueLocalPayload(currentPayload(), true);
-    applyPayload(snapshot.payload);
-    recordActivity("backup.local.restore", lang === "vi" ? "Đã khôi phục snapshot cục bộ" : "Restored local snapshot", { snapshotId: snapshot.id, savedAt: snapshot.savedAt });
-    setBackupFeedback(t.restoreSuccess);
-    const snapshots = (await idbGetAll("snapshots")).sort((a, b) => b.savedAt - a.savedAt).slice(0, 10);
-    setLocalSnapshots(snapshots.map((item) => ({ ...item, summary: backupSummary(item.payload) })));
+    await restoreDevicePayload(snapshot.payload);
+    openStorageModal();
+  }
+
+  async function restoreDevicePayload(payload) {
+    if (cloudUploadInFlightRef.current) return;
+    cloudUploadInFlightRef.current = true;
+    setSyncBusy(true);
+    const scope = syncScopeRef.current;
+    const fingerprint = syncDataFingerprint(latestPayloadRef.current);
+    let wroteLocal = false;
+    try {
+      assertSyncReady(false);
+      assertSyncDataConsistent(payload);
+      await saveRecoverySnapshot(latestPayloadRef.current, "before-local-restore");
+      assertSyncUnchanged(scope, fingerprint);
+      wroteLocal = true;
+      await enqueueLocalPayload(payload, false, { scope, meta: { revision: knownCloudRevisionRef.current, contentFingerprint: lastCloudFingerprintRef.current, savedAt: lastCloudSavedAt, paused: true } });
+      assertSyncUnchanged(scope, fingerprint);
+      applyPayload(payload);
+      latestPayloadRef.current = payload;
+      setFilterId(null);
+      rememberCloudVersion(knownCloudRevisionRef.current, lastCloudFingerprintRef.current, lastCloudSavedAt, true);
+      setAutoBackupStatus("conflict");
+      recordActivity("backup.local.restore", lang === "vi" ? "Đã khôi phục dữ liệu trên máy; tạm dừng tự động sao lưu" : "Restored local data; automatic upload paused");
+      setBackupFeedback(lang === "vi" ? "Đã khôi phục. Bấm Sao lưu lên Firebase nếu muốn dùng bản này trên Firebase." : "Restored. Upload manually if you want to use this version on Firebase.");
+    } catch (error) {
+      if (wroteLocal) await enqueueLocalPayload(latestPayloadRef.current).catch((saveError) => reportSyncError("restore", saveError));
+      reportSyncError("restore", error);
+      setSyncStatus("error");
+    } finally { cloudUploadInFlightRef.current = false; setSyncBusy(false); }
   }
 
   function exportLocalBackup() {
@@ -1472,306 +1668,482 @@ function App() {
   async function restorePreviewedBackup() {
     if (!backupPreview?.payload) return;
     if (!window.confirm(t.restoreConfirm)) return;
-    await enqueueLocalPayload(currentPayload(), true);
-    applyPayload(backupPreview.payload);
-    recordActivity("backup.file.restore", lang === "vi" ? "Đã khôi phục từ file backup" : "Restored from backup file", { savedAt: backupPreview.savedAt });
+    await restoreDevicePayload(backupPreview.payload);
     setBackupPreview(null);
-    setBackupFeedback(t.restoreSuccess);
   }
+
+  function rememberCloudVersion(revision, contentFingerprint, savedAt = Date.now(), paused = false) {
+    knownCloudRevisionRef.current = Number(revision || 0);
+    lastCloudFingerprintRef.current = contentFingerprint || "";
+    autoBackupBlockedRef.current = paused;
+    cloudUpdateAvailableRef.current = false;
+    setLastCloudSavedAt(savedAt);
+    if (syncCfg?.syncCode) saveCloudMeta(syncCfg.syncCode, { revision: Number(revision || 0), contentFingerprint: contentFingerprint || "", savedAt, paused }, syncCfg.projectId);
+  }
+
+  function syncChangedError() {
+    return Object.assign(new Error("Dữ liệu đã thay đổi trong lúc xử lý. Hãy đối chiếu lại trước khi tiếp tục."), { code: "sync-changed" });
+  }
+
+  function assertSyncUnchanged(scope, fingerprint) {
+    assertLocalWriter();
+    if (syncScopeRef.current !== scope || (fingerprint && syncDataFingerprint(latestPayloadRef.current) !== fingerprint)) throw syncChangedError();
+  }
+
+  function assertSyncReady(requireCloud = true) {
+    assertLocalWriter();
+    if (!localHydrated || (requireCloud && !cloudMetaReady) || localSaveStatus !== "saved" || savedBusinessRef.current !== syncDataFingerprint(latestPayloadRef.current)) {
+      throw new Error("Dữ liệu máy chưa được đọc và lưu thành công. Hãy thử lưu lại trước khi đồng bộ.");
+    }
+    if (pendingUploadRef.current) throw new Error("Cần xác minh lần sao lưu trước trước khi đồng bộ tiếp.");
+  }
+
+  async function retryLocalSave() {
+    try {
+      assertLocalWriter();
+      if (!localHydrated) return;
+      setLocalSaveStatus("saving");
+      const data = latestPayloadRef.current;
+      const saved = await enqueueLocalPayload(data);
+      savedBusinessRef.current = syncDataFingerprint(data);
+      setLastLocalSavedAt(saved.savedAt);
+      setLocalSaveStatus("saved");
+    } catch (error) { setLocalSaveStatus("error"); reportSyncError("local", error); }
+  }
+
+  async function setPendingOperation(operation) {
+    assertLocalWriter();
+    await idbPut("meta", { id: "pending-upload:" + syncScopeRef.current, operation });
+    pendingUploadRef.current = operation;
+    setPendingUpload(operation);
+  }
+
+  async function verifyPendingUpload() {
+    if (!pendingUploadRef.current || cloudUploadInFlightRef.current || !localHydrated || !tabWriter || !dbRef.current) return;
+    cloudUploadInFlightRef.current = true;
+    const operation = pendingUploadRef.current, scope = syncScopeRef.current;
+    try {
+      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
+      const versionRef = ref.collection("versions").doc(operation.versionId);
+      // Read and retire staging atomically: a delayed original commit must read this
+      // same document, so it cannot publish after verification declares it abandoned.
+      const published = await cloudRequest(dbRef.current.runTransaction(async (transaction) => {
+        const version = await transaction.get(versionRef);
+        assertSyncUnchanged(scope);
+        if (version.exists && version.data().status === "complete") return true;
+        transaction.set(versionRef, { ...(version.exists ? version.data() : {}), versionId: operation.versionId, status: "abandoned", revision: -1 });
+        return false;
+      }, { maxAttempts: 5 }));
+      assertSyncUnchanged(scope);
+      if (published) {
+        const accepted = await readFirebaseBackupVersion(ref, operation.revision, { versionId: operation.versionId });
+        if (accepted.contentFingerprint !== operation.fingerprint) throw new Error("Bản sao lưu chờ xác minh không khớp nội dung.");
+        const meta = { revision: operation.revision, contentFingerprint: operation.fingerprint, savedAt: operation.savedAt, paused: false };
+        await enqueueLocalPayload(latestPayloadRef.current, false, { scope, meta });
+        rememberCloudVersion(meta.revision, meta.contentFingerprint, meta.savedAt);
+      } else {
+        // Do not create an outer automatic upload/retry loop after an exhausted
+        // transaction. The user can retry after reviewing the latest data.
+        rememberCloudVersion(knownCloudRevisionRef.current, lastCloudFingerprintRef.current, lastCloudSavedAt, true);
+      }
+      await setPendingOperation(null);
+      if (!published) deleteFirebaseVersion(versionRef, true).catch((error) => reportSyncError("cleanup", error));
+      if (!published) for (const stagedId of operation.stagingIds || []) {
+        if (stagedId === operation.versionId) continue;
+        const stagedRef = ref.collection("versions").doc(stagedId);
+        cloudRequest(stagedRef.get({ source: "server" })).then((snapshot) => {
+          // The fenced main candidate prevents the original transaction from
+          // publishing these auxiliary copies. Never delete a completed copy.
+          if (snapshot.exists && snapshot.data().status === "staging") return deleteFirebaseVersion(stagedRef);
+        }).catch((error) => reportSyncError("cleanup", error));
+      }
+      pendingAttemptsRef.current = 0;
+      setBackupFeedback(published ? "Đã xác minh lần sao lưu trước thành công." : "Bản tạm chưa được công bố. Đang kiểm tra lại hai bên.");
+      setSyncStatus("synced");
+    } catch (error) {
+      reportSyncError("verify", error);
+      setSyncStatus("verifying");
+      pendingAttemptsRef.current += 1;
+      setAutoBackupRetryToken((value) => value + 1);
+    } finally { cloudUploadInFlightRef.current = false; }
+    if (!pendingUploadRef.current) await checkFirebaseBackup();
+  }
+  verifyPendingRef.current = verifyPendingUpload;
+
+  useEffect(() => {
+    if (!tabWriter || !localHydrated || !syncCfg?.syncCode) return;
+    let cancelled = false;
+    setCloudMetaReady(false);
+    const scope = syncScopeRef.current;
+    Promise.all([idbGet("state", LOCAL_STATE_KEY), idbGet("meta", "pending-upload:" + scope)])
+      .then(([state, pending]) => {
+        if (cancelled) return;
+        const stored = state?.cloudBaselines?.[scope];
+        const cached = loadCloudMeta(syncCfg.syncCode, syncCfg.projectId);
+        const meta = chooseCloudBaseline(stored, cached, hadLocalDataRef.current);
+        if (meta) rememberCloudVersion(meta.revision, meta.contentFingerprint, meta.savedAt, meta.paused);
+        else rememberCloudVersion(0, "", null);
+        pendingUploadRef.current = pending?.operation || null;
+        setPendingUpload(pending?.operation || null);
+        pendingAttemptsRef.current = 0;
+        setCloudMetaReady(true);
+        setAutoBackupRetryToken((value) => value + 1);
+      }).catch((error) => { if (!cancelled) { reportSyncError("local", error); setSyncStatus("error"); } });
+    return () => { cancelled = true; };
+  }, [tabWriter, localHydrated, syncCfg?.projectId, syncCfg?.syncCode]);
+
+  useEffect(() => {
+    if (!pendingUpload || !cloudMetaReady || !tabWriter || pendingAttemptsRef.current > 3) return;
+    const delays = [0, 5000, 15000, 30000];
+    const timer = window.setTimeout(() => verifyPendingRef.current?.(), delays[pendingAttemptsRef.current]);
+    return () => window.clearTimeout(timer);
+  }, [pendingUpload, cloudMetaReady, tabWriter, autoBackupRetryToken]);
+
+  useEffect(() => {
+    const online = () => { pendingAttemptsRef.current = 0; verifyPendingRef.current?.(); };
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, []);
+
+  useEffect(() => {
+    if (!cloudMetaReady || !localHydrated || !tabWriter || localSaveStatus !== "saved" || !syncCfg?.syncCode || pendingUpload) return;
+    const scope = syncScopeRef.current;
+    if (openingCloudCheckRef.current === scope) return;
+    openingCloudCheckRef.current = scope;
+    checkFirebaseBackup();
+  }, [cloudMetaReady, localHydrated, tabWriter, localSaveStatus, pendingUpload, syncCfg?.projectId, syncCfg?.syncCode]);
 
   async function readFirebaseBackupVersion(ref, revision, fallback) {
-    if (!revision) return fallback || null;
     const versionId = fallback?.versionId || String(revision);
-    const versionSnapshot = await ref.collection("versions").doc(versionId).get();
-    if (!versionSnapshot.exists) return fallback || null;
-    const version = versionSnapshot.data();
-    if (version.payload) return { ...version, versionId };
-    const partCount = Number(version.partCount || 0);
-    if (!partCount) return version;
-    const partSnapshots = await Promise.all(Array.from({ length: partCount }, (_, index) =>
-      versionSnapshot.ref.collection("parts").doc(String(index).padStart(5, "0")).get()
-    ));
-    const payloadJson = partSnapshots.map((part) => part.data()?.data || "").join("");
-    return { ...version, versionId, payload: JSON.parse(payloadJson) };
+    const snapshot = await cloudRequest(ref.collection("versions").doc(versionId).get({ source: "server" }));
+    const version = snapshot.exists ? snapshot.data() : fallback;
+    if (!version || ["staging", "abandoned"].includes(version.status)) throw new Error("Firebase backup payload is missing");
+    if (Number(version.revision || 0) !== Number(revision || 0)) throw new Error("Invalid backup revision");
+    let payload = version.payload;
+    if (!payload) {
+      const partCount = Number(version.partCount);
+      if (!Number.isInteger(partCount) || partCount < 1 || partCount > 10000 || !snapshot.exists) throw new Error("Firebase backup payload is missing");
+      const parts = await cloudRequest(Promise.all(Array.from({ length: partCount }, (_, index) =>
+        snapshot.ref.collection("parts").doc(String(index).padStart(5, "0")).get({ source: "server" })
+      )));
+      if (parts.some((part) => !part.exists || typeof part.data()?.data !== "string")) throw new Error("Firebase backup is incomplete: missing parts");
+      const json = parts.map((part) => part.data().data).join("");
+      if (version.fingerprint && fingerprintText(json) !== version.fingerprint) throw new Error("Firebase backup integrity check failed");
+      payload = JSON.parse(json);
+    } else if (version.fingerprint && payloadFingerprint(payload) !== version.fingerprint) {
+      throw new Error("Firebase backup integrity check failed");
+    }
+    validateSyncPayload(payload);
+    const contentFingerprint = syncDataFingerprint(payload);
+    if (version.contentFingerprint && version.contentFingerprint !== contentFingerprint) throw new Error("Firebase backup content check failed");
+    return { ...version, versionId, contentFingerprint, payload };
   }
 
-  function rememberCloudVersion(revision, fingerprint, savedAt = Date.now()) {
-    knownCloudRevisionRef.current = Number(revision || 0);
-    lastCloudFingerprintRef.current = fingerprint || "";
-    setLastCloudSavedAt(savedAt);
-    if (syncCfg?.syncCode) saveCloudMeta(syncCfg.syncCode, { revision: Number(revision || 0), fingerprint: fingerprint || "", savedAt });
+  async function getCloudHead(ref) {
+    const snapshot = await cloudRequest(ref.get({ source: "server" }));
+    if (!snapshot.exists) return { manifest: null, token: "missing", backup: null, fingerprint: "" };
+    const manifest = snapshot.data();
+    const backup = await readFirebaseBackupVersion(ref, Number(manifest.revision || 0), manifest);
+    if (manifest.fingerprint && backup.fingerprint && manifest.fingerprint !== backup.fingerprint) throw new Error("Firebase backup manifest mismatch");
+    return { manifest, token: cloudHeadToken(manifest), backup, fingerprint: backup.contentFingerprint };
   }
 
-  async function deleteFirebaseVersion(versionRef) {
-    const partSnapshots = await versionRef.collection("parts").get();
-    for (let offset = 0; offset < partSnapshots.docs.length; offset += 400) {
+  function showSyncComparison(head, local, target = head.backup, restoring = false) {
+    setBackupFeedback("");
+    rememberCloudVersion(knownCloudRevisionRef.current, lastCloudFingerprintRef.current, lastCloudSavedAt, true);
+    setSyncComparison({
+      scope: syncScopeRef.current, localFingerprint: syncDataFingerprint(local),
+      headToken: head.token, head, target, restoring,
+      ...compareSyncData(local, target?.payload),
+    });
+    setAutoBackupStatus("conflict");
+    setSyncStatus("conflict");
+  }
+
+  async function deleteFirebaseVersion(versionRef, keepTombstone = false) {
+    const parts = await versionRef.collection("parts").get({ source: "server" });
+    for (let offset = 0; offset < parts.docs.length; offset += 400) {
       const batch = dbRef.current.batch();
-      partSnapshots.docs.slice(offset, offset + 400).forEach((part) => batch.delete(part.ref));
+      parts.docs.slice(offset, offset + 400).forEach((part) => batch.delete(part.ref));
       await batch.commit();
     }
-    await versionRef.delete();
+    if (!keepTombstone) await versionRef.delete();
   }
 
   async function trimFirebaseVersions(ref) {
-    const snapshot = await ref.collection("versions").orderBy("revision", "desc").get();
-    const completed = snapshot.docs.filter((version) => version.data().status !== "staging");
-    const abandoned = snapshot.docs.filter((version) => version.data().status === "staging");
-    for (const oldVersion of [...completed.slice(10), ...abandoned]) await deleteFirebaseVersion(oldVersion.ref);
+    const snapshot = await ref.collection("versions").orderBy("revision", "desc").get({ source: "server" });
+    // Never delete another device's in-progress upload or a recovery version.
+    const completed = snapshot.docs.filter((version) => !["staging", "abandoned"].includes(version.data().status) && !version.data().protected);
+    for (const old of completed.slice(10)) await deleteFirebaseVersion(old.ref);
+  }
+
+  async function stageFirebaseVersion(ref, payload, revision, protectedCopy = false) {
+    const json = JSON.stringify(payload);
+    const versionId = revision + "-" + deviceIdRef.current + "-" + uid();
+    const versionRef = ref.collection("versions").doc(versionId);
+    const parts = [];
+    for (let start = 0; start < json.length;) {
+      let end = Math.min(start + 200000, json.length);
+      const last = json.charCodeAt(end - 1);
+      if (end < json.length && last >= 0xD800 && last <= 0xDBFF) end++;
+      parts.push(json.slice(start, end));
+      start = end;
+    }
+    const manifest = {
+      schemaVersion: 4, revision, versionId, updatedAt: Date.now(), deviceId: deviceIdRef.current,
+      fingerprint: fingerprintText(json), contentFingerprint: syncDataFingerprint(payload),
+      summary: backupSummary(payload), partCount: parts.length, status: "complete", protected: protectedCopy,
+    };
+    await cloudRequest(versionRef.set({ status: "staging", revision: -1, versionId, updatedAt: manifest.updatedAt, deviceId: deviceIdRef.current }));
+    try {
+      for (let offset = 0; offset < parts.length; offset += 400) {
+        const batch = dbRef.current.batch();
+        parts.slice(offset, offset + 400).forEach((data, index) => batch.set(versionRef.collection("parts").doc(String(offset + index).padStart(5, "0")), { data }));
+        await cloudRequest(batch.commit());
+      }
+      return { ref: versionRef, manifest, payload };
+    } catch (error) {
+      deleteFirebaseVersion(versionRef).catch((cleanupError) => reportSyncError("cleanup", cleanupError));
+      throw error;
+    }
   }
 
   async function checkFirebaseBackup() {
-    if (!dbRef.current || !syncCfg?.syncCode) return;
+    if (!localHydrated || !dbRef.current || !syncCfg?.syncCode || cloudUploadInFlightRef.current) return;
+    cloudUploadInFlightRef.current = true;
     setSyncStatus("connecting");
+    const scope = syncScopeRef.current;
     try {
-      const snapshot = await dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode).get();
-      if (!snapshot.exists) {
-        rememberCloudVersion(0, "", Date.now());
-        autoBackupBlockedRef.current = false;
-        setCloudBackup(null);
-        setCloudBackups([]);
-        setBackupFeedback(t.noCloudBackup);
+      assertSyncReady();
+      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
+      const head = await getCloudHead(ref);
+      const versions = await cloudRequest(ref.collection("versions").orderBy("revision", "desc").get({ source: "server" }));
+      assertSyncUnchanged(scope);
+      setCloudBackups(versions.docs.filter((doc) => !["staging", "abandoned"].includes(doc.data().status)).map((doc) => ({ ...doc.data(), versionId: doc.id })));
+      setCloudBackup(head.backup);
+      const local = latestPayloadRef.current;
+      assertSyncDataConsistent(local);
+      if (head.backup) assertSyncDataConsistent(head.backup.payload);
+      setDataIssues([]);
+      const decision = syncUploadDecision(syncDataFingerprint(local), head.fingerprint, lastCloudFingerprintRef.current, Boolean(head.backup), autoBackupBlockedRef.current);
+      if (decision === "same") {
+        await enqueueLocalPayload(latestPayloadRef.current, false, { scope, meta: { revision: head.manifest.revision, contentFingerprint: head.fingerprint, savedAt: head.manifest.updatedAt, paused: false } });
+        rememberCloudVersion(head.manifest.revision, head.fingerprint, head.manifest.updatedAt);
+        setAutoBackupStatus("saved");
+        setSyncStatus("synced");
+      } else if (decision === "download") {
+        cloudUpdateAvailableRef.current = true;
+        setAutoBackupStatus("remote"); setSyncStatus("remote");
+        setBackupFeedback("Có bản cập nhật trên Firebase. Bấm Đồng bộ về máy để tải về.");
+      } else if (decision === "upload") {
         setAutoBackupStatus("pending");
-        setAutoBackupRetryToken((value) => value + 1);
-      } else {
-        const data = snapshot.data();
-        const revision = Number(data.revision || 0);
-        const versionsSnapshot = await snapshot.ref
-          .collection("versions")
-          .orderBy("revision", "desc")
-          .limit(10)
-          .get();
-        let versions = versionsSnapshot.docs.filter((document) => document.data().status !== "staging").map((document) => {
-          const version = document.data();
-          return {
-            ...version,
-            revision: Number(version.revision || document.id),
-            versionId: version.versionId || document.id,
-            summary: version.summary || {},
-          };
-        });
-        if (!versions.length) {
-          const versionData = await readFirebaseBackupVersion(snapshot.ref, revision, data);
-          versions = [{
-            ...data,
-            ...versionData,
-            revision,
-            summary: data.summary || backupSummary(versionData?.payload),
-          }];
-        }
-        setCloudBackups(versions);
-        setCloudBackup(versions[0] || null);
-        const localFingerprint = payloadFingerprint(currentPayload());
-        const isKnownVersion = revision === knownCloudRevisionRef.current;
-        const isSameData = Boolean(data.fingerprint) && data.fingerprint === localFingerprint;
-        if (isKnownVersion || isSameData) {
-          rememberCloudVersion(revision, data.fingerprint || (isSameData ? localFingerprint : lastCloudFingerprintRef.current), data.updatedAt || Date.now());
-          autoBackupBlockedRef.current = false;
-          setAutoBackupStatus(isSameData ? "saved" : "pending");
-          setBackupFeedback("");
-          if (!isSameData) setAutoBackupRetryToken((value) => value + 1);
-        } else {
-          autoBackupBlockedRef.current = true;
-          setAutoBackupStatus("conflict");
-          setBackupFeedback(t.cloudConflict);
-          reportSyncError("check", { code: "cloud-conflict", message: "Cloud revision differs from the revision known by this device." });
-          setSyncStatus("conflict");
-          return;
-        }
-      }
-      setSyncStatus("synced");
+        setSyncStatus("synced");
+        setBackupFeedback(head.backup ? "" : t.noCloudBackup);
+      } else showSyncComparison(head, local);
     } catch (error) {
-      console.warn("Could not check Firebase backup:", error);
       reportSyncError("check", error);
       setSyncStatus("error");
+    } finally {
+      cloudUploadInFlightRef.current = false;
+      setAutoBackupRetryToken((value) => value + 1);
     }
   }
 
   async function uploadFirebaseBackup(options = {}) {
-    const automatic = options?.automatic === true;
-    if (!dbRef.current || !syncCfg?.syncCode || cloudUploadInFlightRef.current || autoBackupBlockedRef.current) return;
+    const automatic = options.automatic === true;
+    if (!localHydrated || !dbRef.current || !syncCfg?.syncCode || cloudUploadInFlightRef.current || (automatic && autoBackupBlockedRef.current)) return;
     cloudUploadInFlightRef.current = true;
     setSyncStatus("connecting");
     if (automatic) setAutoBackupStatus("saving");
-    let stagedVersionRef = null;
+    const resolution = options.resolution;
+    if (resolution) setSyncBusy(true);
+    const scope = syncScopeRef.current;
+    const staged = [];
+    let committed = false, failed = false, commitStarted = false;
     try {
+      assertSyncReady();
       const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
-      const payload = currentPayload();
-      const payloadJson = JSON.stringify(payload);
-      const fingerprint = fingerprintText(payloadJson);
-      const snapshot = await ref.get();
-      const remoteData = snapshot.exists ? snapshot.data() : null;
-      const remoteRevision = Number(remoteData?.revision || 0);
-
-      if (remoteData?.fingerprint === fingerprint) {
-        rememberCloudVersion(remoteRevision, fingerprint, remoteData.updatedAt || Date.now());
-        autoBackupBlockedRef.current = false;
-        setAutoBackupStatus("saved");
-        setBackupFeedback(automatic ? "" : t.backupSuccess);
-        setSyncStatus("synced");
+      const payload = JSON.parse(JSON.stringify(latestPayloadRef.current));
+      assertSyncDataConsistent(payload);
+      setDataIssues([]);
+      const localFingerprint = syncDataFingerprint(payload);
+      const head = await getCloudHead(ref);
+      if (head.backup) assertSyncDataConsistent(head.backup.payload);
+      assertSyncUnchanged(scope);
+      const decision = syncUploadDecision(localFingerprint, head.fingerprint, lastCloudFingerprintRef.current, Boolean(head.backup), autoBackupBlockedRef.current);
+      if (resolution && (resolution.scope !== scope || resolution.headToken !== head.token || resolution.localFingerprint !== localFingerprint)) {
+        showSyncComparison(head, latestPayloadRef.current);
+        setBackupFeedback(lang === "vi" ? "Dữ liệu vừa thay đổi. Hãy chọn lại sau khi đối chiếu." : "Data changed. Review and choose again.");
         return;
       }
-      if (remoteRevision !== knownCloudRevisionRef.current) {
-        const conflict = new Error("cloud-conflict");
-        conflict.code = "cloud-conflict";
-        throw conflict;
+      if (decision === "same") {
+        await enqueueLocalPayload(latestPayloadRef.current, false, { scope, meta: { revision: head.manifest.revision, contentFingerprint: head.fingerprint, savedAt: head.manifest.updatedAt, paused: false } });
+        rememberCloudVersion(head.manifest.revision, head.fingerprint, head.manifest.updatedAt);
+        setSyncStatus("synced"); setAutoBackupStatus(syncDataFingerprint(latestPayloadRef.current) === head.fingerprint ? "saved" : "pending"); setSyncComparison(null); setBackupFeedback(t.backupSuccess);
+        return;
       }
-
-      const nextRevision = remoteRevision + 1;
-      const versionId = `${nextRevision}-${deviceIdRef.current}-${uid()}`;
-      const updatedAt = Date.now();
-      const parts = payloadJson.match(/[\s\S]{1,200000}/g) || [""];
-      stagedVersionRef = ref.collection("versions").doc(versionId);
-      await stagedVersionRef.set({ status: "staging", revision: -1, versionId, updatedAt, deviceId: deviceIdRef.current });
-      for (let offset = 0; offset < parts.length; offset += 400) {
-        const partsBatch = dbRef.current.batch();
-        parts.slice(offset, offset + 400).forEach((data, index) => {
-          const partIndex = offset + index;
-          partsBatch.set(stagedVersionRef.collection("parts").doc(String(partIndex).padStart(5, "0")), { data });
-        });
-        await partsBatch.commit();
+      if (decision === "download" && !resolution) {
+        cloudUpdateAvailableRef.current = true;
+        setSyncStatus("remote"); setAutoBackupStatus("remote");
+        setBackupFeedback("Có bản cập nhật trên Firebase. Bấm Đồng bộ về máy để tải về.");
+        return;
       }
-
-      const manifest = {
-        schemaVersion: 4,
-        revision: nextRevision,
-        versionId,
-        updatedAt,
-        deviceId: deviceIdRef.current,
-        fingerprint,
-        summary: backupSummary(payload),
-        partCount: parts.length,
-        status: "complete",
-      };
-      await dbRef.current.runTransaction(async (transaction) => {
-        const freshSnapshot = await transaction.get(ref);
-        const freshRevision = freshSnapshot.exists ? Number(freshSnapshot.data().revision || 0) : 0;
-        if (freshRevision !== remoteRevision) {
-          const conflict = new Error("cloud-conflict");
-          conflict.code = "cloud-conflict";
-          throw conflict;
+      if (decision !== "upload" && !resolution) {
+        showSyncComparison(head, latestPayloadRef.current);
+        return;
+      }
+      if (resolution) {
+        assertSyncUnchanged(scope, localFingerprint);
+        await saveRecoverySnapshot(payload, "before-conflict-upload-local");
+        if (head.backup) {
+          await saveRecoverySnapshot(head.backup.payload, "before-conflict-upload-cloud");
+          staged.push(await stageFirebaseVersion(ref, head.backup.payload, Number(head.manifest.revision), true));
         }
-        transaction.set(stagedVersionRef, manifest);
-        transaction.set(ref, manifest);
-      });
-
-      const next = { ...manifest, payload };
-      rememberCloudVersion(nextRevision, fingerprint, updatedAt);
-      autoBackupBlockedRef.current = false;
-      setCloudBackup(next);
-      setCloudBackups((previous) => [next, ...previous.filter((item) => item.versionId !== versionId)].slice(0, 10));
-      setBackupFeedback(automatic ? "" : t.backupSuccess);
-      setAutoBackupStatus("saved");
+      }
+      const next = await stageFirebaseVersion(ref, payload, Number(head.manifest?.revision || 0) + 1);
+      staged.push(next);
+      assertSyncUnchanged(scope);
+      await setPendingOperation({ versionId: next.manifest.versionId, revision: next.manifest.revision, fingerprint: next.manifest.contentFingerprint, savedAt: next.manifest.updatedAt, stagingIds: staged.map((version) => version.manifest.versionId) });
+      commitStarted = true;
+      await cloudRequest(dbRef.current.runTransaction(async (transaction) => {
+        const fresh = await transaction.get(ref);
+        const candidate = await transaction.get(next.ref);
+        assertSyncUnchanged(scope, resolution ? localFingerprint : null);
+        if (!candidate.exists || candidate.data().status !== "staging") throw Object.assign(new Error("Lần sao lưu đã được kết thúc bởi bước xác minh. Hãy kiểm tra lại."), { code: "sync-retired" });
+        if (cloudHeadToken(fresh.exists ? fresh.data() : null) !== head.token) throw Object.assign(new Error("Firebase changed during upload. Review the comparison again."), { code: "cloud-conflict" });
+        staged.forEach((version) => transaction.set(version.ref, version.manifest));
+        transaction.set(ref, next.manifest);
+      }, { maxAttempts: 5 }));
+      committed = true;
+      assertSyncUnchanged(scope);
+      await enqueueLocalPayload(latestPayloadRef.current, false, { scope, meta: { revision: next.manifest.revision, contentFingerprint: next.manifest.contentFingerprint, savedAt: next.manifest.updatedAt, paused: false } });
+      await setPendingOperation(null);
+      rememberCloudVersion(next.manifest.revision, next.manifest.contentFingerprint, next.manifest.updatedAt);
+      setCloudBackup({ ...next.manifest, payload });
+      setCloudBackups((previous) => [...staged.map((version) => ({ ...version.manifest, payload: version.payload })).reverse(), ...previous]);
+      setSyncComparison(null);
       setSyncStatus("synced");
-      if (!automatic) {
-        recordActivity("backup.firebase.upload", lang === "vi" ? `Đã sao lưu Firebase revision ${nextRevision}` : `Backed up Firebase revision ${nextRevision}`, { revision: nextRevision });
-        window.setTimeout(() => setBackupFeedback((current) => current === t.backupSuccess ? "" : current), 3500);
-      }
-      trimFirebaseVersions(ref).catch((error) => { console.warn("Could not trim old Firebase backups:", error); reportSyncError("cleanup", error); });
-      setAutoBackupRetryToken((value) => value + 1);
+      setAutoBackupStatus(syncDataFingerprint(latestPayloadRef.current) === localFingerprint ? "saved" : "pending");
+      setBackupFeedback(automatic ? "" : t.backupSuccess);
+      if (!automatic) recordActivity("backup.firebase.upload", lang === "vi" ? "Đã sao lưu lên Firebase" : "Uploaded Firebase backup", { revision: next.manifest.revision });
+      trimFirebaseVersions(ref).catch((error) => reportSyncError("cleanup", error));
     } catch (error) {
+      failed = true;
       reportSyncError(automatic ? "automatic" : "upload", error);
-      if (stagedVersionRef) {
-        deleteFirebaseVersion(stagedVersionRef).catch((cleanupError) => { console.warn("Could not clean staged Firebase backup:", cleanupError); reportSyncError("cleanup", cleanupError); });
-      }
-      if (error?.code === "cloud-conflict" || error?.message === "cloud-conflict") {
-        autoBackupBlockedRef.current = true;
-        setAutoBackupStatus("conflict");
-        setBackupFeedback(t.cloudConflict);
-        setSyncStatus("conflict");
+      if (!committed && !commitStarted) for (const version of staged) deleteFirebaseVersion(version.ref).catch((cleanupError) => reportSyncError("cleanup", cleanupError));
+      if (commitStarted && pendingUploadRef.current) {
+        setSyncStatus("verifying"); setAutoBackupStatus("verifying");
+        pendingAttemptsRef.current = 0;
+        setAutoBackupRetryToken((value) => value + 1);
+      } else if (error.code === "cloud-conflict" || error.code === "sync-changed" || error.code === "inconsistent-data") {
+        rememberCloudVersion(knownCloudRevisionRef.current, lastCloudFingerprintRef.current, lastCloudSavedAt, true);
+        setAutoBackupStatus("conflict"); setSyncStatus("conflict");
       } else {
-        console.warn("Could not upload Firebase backup:", error);
-        setAutoBackupStatus(navigator.onLine === false ? "offline" : "pending");
         setSyncStatus("error");
-        if (automatic) window.setTimeout(() => setAutoBackupRetryToken((value) => value + 1), 30000);
+        setAutoBackupStatus(navigator.onLine === false ? "offline" : "pending");
+        // No unlimited outer retry loop. Online event or explicit retry restarts it.
       }
     } finally {
       cloudUploadInFlightRef.current = false;
+      setSyncBusy(false);
+      if (!failed) setAutoBackupRetryToken((value) => value + 1);
     }
+  }
+
+  async function prepareFirebaseDownload(selectedBackup) {
+    if (!localHydrated || cloudUploadInFlightRef.current) return;
+    if (!syncCfg || !dbRef.current) { openStorageModal(); return; }
+    const allowCleanDownload = !autoBackupBlockedRef.current || syncStatus === "remote";
+    cloudUploadInFlightRef.current = true;
+    setSyncStatus("connecting");
+    const scope = syncScopeRef.current;
+    try {
+      assertSyncReady();
+      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
+      const head = await getCloudHead(ref);
+      assertSyncUnchanged(scope);
+      if (!head.backup) { setBackupFeedback(t.noCloudBackup); setSyncStatus("synced"); openStorageModal(); return; }
+      const target = selectedBackup ? await readFirebaseBackupVersion(ref, selectedBackup.revision, selectedBackup) : head.backup;
+      assertSyncDataConsistent(target.payload);
+      assertSyncDataConsistent(latestPayloadRef.current);
+      assertSyncUnchanged(scope);
+      if (syncDataFingerprint(latestPayloadRef.current) === target.contentFingerprint && target.versionId === head.backup.versionId) {
+        await enqueueLocalPayload(latestPayloadRef.current, false, { scope, meta: { revision: head.manifest.revision, contentFingerprint: head.fingerprint, savedAt: head.manifest.updatedAt, paused: false } });
+        rememberCloudVersion(head.manifest.revision, head.fingerprint, head.manifest.updatedAt);
+        setAutoBackupStatus("saved"); setSyncStatus("synced"); setBackupFeedback(t.syncLatestSuccess);
+        return;
+      }
+      if (!selectedBackup && syncDataFingerprint(latestPayloadRef.current) === lastCloudFingerprintRef.current && allowCleanDownload) {
+        const comparison = { scope, localFingerprint: syncDataFingerprint(latestPayloadRef.current), headToken: head.token, target, restoring: false };
+        cloudUploadInFlightRef.current = false;
+        await acceptFirebaseDownload(comparison);
+        return;
+      }
+      showSyncComparison(head, latestPayloadRef.current, target, target.versionId !== head.backup.versionId);
+    } catch (error) {
+      reportSyncError(selectedBackup ? "restore" : "download", error); setSyncStatus("error");
+    } finally { cloudUploadInFlightRef.current = false; }
+  }
+
+  async function acceptFirebaseDownload(comparison) {
+    if (!comparison?.target || !dbRef.current || cloudUploadInFlightRef.current) return;
+    cloudUploadInFlightRef.current = true;
+    setSyncBusy(true);
+    setSyncStatus("connecting");
+    const scope = syncScopeRef.current;
+    let wroteLocal = false;
+    try {
+      assertSyncReady();
+      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
+      const head = await getCloudHead(ref);
+      assertSyncUnchanged(scope);
+      if (comparison.scope !== scope || comparison.headToken !== head.token || comparison.localFingerprint !== syncDataFingerprint(latestPayloadRef.current)) {
+        const target = comparison.restoring ? await readFirebaseBackupVersion(ref, comparison.target.revision, comparison.target) : head.backup;
+        showSyncComparison(head, latestPayloadRef.current, target, comparison.restoring);
+        setBackupFeedback(lang === "vi" ? "Dữ liệu vừa thay đổi. Hãy đối chiếu lại." : "Data changed. Review again.");
+        return;
+      }
+      const target = comparison.restoring ? await readFirebaseBackupVersion(ref, comparison.target.revision, comparison.target) : head.backup;
+      const before = latestPayloadRef.current;
+      assertSyncDataConsistent(before);
+      assertSyncDataConsistent(target.payload);
+      await saveRecoverySnapshot(before, "before-firebase-download");
+      assertSyncUnchanged(scope, comparison.localFingerprint);
+      const fresh = await cloudRequest(ref.get({ source: "server" }));
+      if (cloudHeadToken(fresh.exists ? fresh.data() : null) !== comparison.headToken) throw syncChangedError();
+      // Device preferences and the error log belong to this device.
+      const payload = { ...target.payload, lang: before.lang, rowHeight: before.rowHeight, quickAttendance: before.quickAttendance };
+      wroteLocal = true;
+      await enqueueLocalPayload(payload, false, { scope, meta: { revision: head.manifest.revision, contentFingerprint: head.fingerprint, savedAt: head.manifest.updatedAt, paused: comparison.restoring } });
+      assertSyncUnchanged(scope, comparison.localFingerprint);
+      applyPayload(payload);
+      latestPayloadRef.current = payload;
+      setFilterId(null);
+      rememberCloudVersion(head.manifest.revision, head.fingerprint, head.manifest.updatedAt, comparison.restoring);
+      setSyncComparison(null);
+      setCloudBackup(head.backup);
+      setAutoBackupStatus(comparison.restoring ? "conflict" : "saved");
+      setSyncStatus("synced");
+      recordActivity("backup.firebase.sync", lang === "vi" ? "Đã lấy dữ liệu Firebase về máy" : "Downloaded Firebase backup", { revision: target.revision });
+      setBackupFeedback(comparison.restoring
+        ? (lang === "vi" ? "Đã khôi phục bản cũ. Tự động sao lưu đang tạm dừng; bấm Sao lưu lên Firebase nếu muốn dùng bản này." : "Older version restored. Automatic upload is paused; upload manually to use this version.")
+        : t.syncLatestSuccess);
+    } catch (error) {
+      if (wroteLocal) await enqueueLocalPayload(latestPayloadRef.current).catch((saveError) => reportSyncError("download", saveError));
+      reportSyncError("download", error); setSyncStatus("error");
+    } finally { cloudUploadInFlightRef.current = false; setSyncBusy(false); }
   }
 
   async function restoreFirebaseBackup(selectedBackup = cloudBackup) {
-    if (!selectedBackup || !dbRef.current || !syncCfg?.syncCode) return;
-    if (!window.confirm(t.restoreConfirm)) return;
-    setSyncStatus("connecting");
-    try {
-      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
-      const rootSnapshot = await ref.get();
-      const rootData = rootSnapshot.exists ? rootSnapshot.data() : {};
-      const rootRevision = Number(rootData.revision || 0);
-      const loadedBackup = selectedBackup.payload
-        ? selectedBackup
-        : await readFirebaseBackupVersion(ref, selectedBackup.revision, selectedBackup);
-      if (!loadedBackup?.payload) throw new Error("Firebase backup payload is missing");
-      await enqueueLocalPayload(currentPayload(), true);
-      applyPayload(loadedBackup.payload);
-      rememberCloudVersion(rootRevision, rootData.fingerprint || "", rootData.updatedAt || Date.now());
-      autoBackupBlockedRef.current = false;
-      setAutoBackupStatus("pending");
-      recordActivity("backup.firebase.restore", lang === "vi" ? `Đã khôi phục Firebase revision ${selectedBackup.revision}` : `Restored Firebase revision ${selectedBackup.revision}`, { revision: selectedBackup.revision });
-      setBackupFeedback(t.restoreSuccess);
-      setSyncStatus("synced");
-      setAutoBackupRetryToken((value) => value + 1);
-    } catch (error) {
-      console.warn("Could not restore Firebase backup:", error);
-      reportSyncError("restore", error);
-      setSyncStatus("error");
-    }
+    return prepareFirebaseDownload(selectedBackup);
   }
 
   async function syncLatestFirebaseBackup() {
-    if (syncStatus === "connecting") return;
-    if (!syncCfg || !dbRef.current) {
-      setSyncConfigText("");
-      setSyncCodeInput(syncCfg?.syncCode || "");
-      setSyncInputError("");
-      openStorageModal();
-      return;
-    }
-    if (!window.confirm(t.syncLatestConfirm)) return;
-    setSyncStatus("connecting");
-    try {
-      const ref = dbRef.current.collection("scheduleBackups").doc(syncCfg.syncCode);
-      const snapshot = await ref.get();
-      if (!snapshot.exists) {
-        rememberCloudVersion(0, "", Date.now());
-        autoBackupBlockedRef.current = false;
-        setAutoBackupStatus("pending");
-        setAutoBackupRetryToken((value) => value + 1);
-        setBackupFeedback(t.noCloudBackup);
-        setSyncStatus("synced");
-        return;
-      }
-      const data = snapshot.data();
-      const revision = Number(data.revision || 0);
-      const latestBackup = await readFirebaseBackupVersion(ref, revision, data);
-      if (!latestBackup?.payload) throw new Error("Firebase backup payload is missing");
-      await enqueueLocalPayload(currentPayload(), true);
-      applyPayload(latestBackup.payload);
-      const fingerprint = data.fingerprint || latestBackup.fingerprint || payloadFingerprint(latestBackup.payload);
-      rememberCloudVersion(revision, fingerprint, data.updatedAt || latestBackup.updatedAt || Date.now());
-      autoBackupBlockedRef.current = false;
-      setAutoBackupStatus("saved");
-      const restoredBackup = {
-        ...data,
-        ...latestBackup,
-        revision,
-        summary: data.summary || backupSummary(latestBackup.payload),
-      };
-      setCloudBackup(restoredBackup);
-      setCloudBackups((previous) => [restoredBackup, ...previous.filter((item) => item.revision !== revision)].slice(0, 10));
-      recordActivity("backup.firebase.sync", lang === "vi" ? `Đã lấy Firebase revision ${revision} về máy` : `Synced Firebase revision ${revision} to this device`, { revision });
-      setBackupFeedback(t.syncLatestSuccess);
-      window.setTimeout(() => setBackupFeedback((current) => current === t.syncLatestSuccess ? "" : current), 3500);
-      setSyncStatus("synced");
-      setAutoBackupRetryToken((value) => value + 1);
-    } catch (error) {
-      console.warn("Could not sync latest Firebase backup:", error);
-      reportSyncError("download", error);
-      setSyncStatus("error");
-    }
+    return prepareFirebaseDownload();
   }
 
   function handlePrimaryFirebaseBackup() {
+    if (pendingUploadRef.current) { pendingAttemptsRef.current = 0; verifyPendingUpload(); return; }
     if (syncStatus === "connecting") return;
     if (syncCfg) {
       setBackupFeedback("");
@@ -2521,19 +2893,27 @@ function App() {
   })).filter((row) => row.attended.length || row.absent.length);
   const payrollTotal = payrollRows.reduce((sum, row) => sum + row.amount, 0);
 
-  if (!localHydrated) {
+  if (!localHydrated || !tabWriter) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center" style={{ background: "#F3F5F7", color: "#6B7A99" }}>
-        <div className="text-sm font-medium">{t.loadingData}</div>
+        <div role="status" className="text-sm font-medium max-w-lg p-6 text-center">
+          <p>{startupError || (!tabWriter ? "Lịch đang chờ quyền chỉnh sửa. Nếu đang mở ở tab khác, hãy đóng tab đó; trang này sẽ tự tiếp tục." : t.loadingData)}</p>
+          {startupError && tabWriter && <button onClick={() => setStartupRetry((n) => n + 1)} className="mt-4 px-4 py-2 rounded-lg bg-white">Thử đọc lại dữ liệu</button>}
+        </div>
       </div>
     );
   }
 
   return (
     <div
+      inert={syncBusy ? "" : undefined}
       className="w-full min-h-screen flex flex-col"
       style={{ background: "#F3F5F7", color: "#16213E" }}
     >
+      {localSaveStatus === "error" && <div role="alert" className="p-3 bg-red-50 text-red-800 text-sm">Không lưu được dữ liệu máy. Đã tạm dừng đồng bộ. <button className="underline mx-2" onClick={retryLocalSave}>Thử lưu lại</button><button className="underline" onClick={exportLocalBackup}>Xuất file dự phòng</button></div>}
+      {pendingUpload && <div role="status" className="p-3 bg-amber-50 text-amber-900 text-sm">Chờ xác minh lần sao lưu trước. Không đóng băng chỉnh sửa; chưa cho đồng bộ tiếp. <button className="underline ml-2" onClick={() => { pendingAttemptsRef.current = 0; verifyPendingUpload(); }}>Kiểm tra lại</button></div>}
+      {syncStatus === "remote" && <div role="status" className="p-3 bg-blue-50 text-blue-900 text-sm">Có bản cập nhật trên Firebase. <button className="underline ml-2" onClick={syncLatestFirebaseBackup}>Tải bản cập nhật</button></div>}
+      {dataIssues.length > 0 && <div role="alert" className="p-3 bg-amber-50 text-amber-900 text-sm"><details open><summary>Dữ liệu điểm danh cần kiểm tra ({dataIssues.length})</summary><div className="max-h-48 overflow-auto">{dataIssues.map((issue, index) => <div key={index}>{issue}</div>)}</div></details><button className="underline mr-3" onClick={exportLocalBackup}>Xuất dự phòng</button><button className="underline mr-3" onClick={() => { setDataIssues([]); setAutoBackupRetryToken((n) => n + 1); checkFirebaseBackup(); }}>Kiểm tra lại</button><button className="underline" onClick={openStorageModal}>Xem bản khôi phục</button></div>}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-wrap gap-3" style={{ background: "#1B2A4A" }}>
         <div>
           <h1 className="text-xl font-semibold tracking-tight" style={{ color: "#F3F5F7" }}>
@@ -2601,7 +2981,13 @@ function App() {
               <span>{
                 syncStatus === "connecting"
                   ? t.syncConnecting
-                  : syncStatus === "conflict" || syncStatus === "error"
+                  : syncStatus === "verifying"
+                  ? "Chờ xác minh"
+                  : syncStatus === "remote"
+                  ? "Có bản cập nhật"
+                  : syncStatus === "conflict"
+                  ? (lang === "vi" ? "Cần đối chiếu" : "Review needed")
+                  : syncStatus === "error"
                   ? t.syncError
                   : backupFeedback === t.backupSuccess
                   ? t.backupSuccess
@@ -3727,6 +4113,44 @@ function App() {
         </div>
       )}
 
+      {syncBusy && (
+        <div role="status" aria-live="polite" className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: "rgba(27,42,74,0.6)" }}>
+          <div className="rounded-xl bg-white p-5 text-sm">{lang === "vi" ? "Đang bảo vệ và cập nhật dữ liệu… Vui lòng chờ." : "Protecting and updating data… Please wait."}</div>
+        </div>
+      )}
+      {syncComparison && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(27,42,74,0.6)" }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="sync-compare-title" className="w-full max-w-3xl rounded-xl bg-white p-5 overflow-y-auto" style={{ maxHeight: "90vh" }}>
+            <h2 id="sync-compare-title" className="text-lg font-semibold">{lang === "vi" ? "Đối chiếu trước khi đồng bộ" : "Compare before syncing"}</h2>
+            <p className="text-sm mt-2">{lang === "vi" ? "Dữ liệu hai bên khác nhau. Chọn bản muốn giữ; không tự gộp dữ liệu. Bản sắp bị thay sẽ được lưu dự phòng." : "The versions differ. Choose which to keep; data will not be merged. A recovery copy is saved before replacement."}</p>
+            <div className="text-xs mt-2" style={{ color: "#6B7A99" }}>{lang === "vi" ? "Số phiên bản, số buổi hoặc tổng tiền lớn hơn không có nghĩa là bản đúng hơn." : "A higher revision, lesson count or total does not necessarily mean the version is correct."}</div>
+            {syncComparison.restoring && <p className="text-sm mt-2" style={{ color: "#A65F00" }}>{lang === "vi" ? "Bạn đang chọn một phiên bản cũ. Sau khi khôi phục, tự động sao lưu sẽ tạm dừng." : "You selected an older version. Automatic upload will pause after restoring."}</p>}
+            <div className="text-xs mt-2">Firebase: {syncComparison.target ? `Revision ${syncComparison.target.revision}` : (lang === "vi" ? "Chưa có bản sao lưu" : "No backup")}</div>
+            <div className="overflow-x-auto my-3 border rounded-lg">
+              <table className="w-full text-sm">
+                <thead style={{ background: "#F3F5F7" }}><tr><th className="p-2 text-left">{lang === "vi" ? "Tháng" : "Month"}</th><th className="p-2 text-right">{lang === "vi" ? "Bản máy: lượt đã học / tiền" : "Device: attended / amount"}</th><th className="p-2 text-right">{lang === "vi" ? "Bản Firebase: lượt đã học / tiền" : "Firebase: attended / amount"}</th></tr></thead>
+                <tbody>{syncComparison.months.map((row) => <tr key={row.month} className="border-t"><td className="p-2">{row.month}</td><td className="p-2 text-right">{row.local.count} / {formatMoney(row.local.amount, lang)}</td><td className="p-2 text-right">{row.remote.count} / {formatMoney(row.remote.amount, lang)}</td></tr>)}</tbody>
+              </table>
+            </div>
+            <details className="border rounded-lg p-3 text-xs">
+              <summary className="cursor-pointer font-semibold">{lang === "vi" ? "Chi tiết khác biệt (tất cả các tháng)" : "Differences (all months)"} · {syncComparison.differences.length}</summary>
+              <div className="max-h-60 overflow-y-auto mt-2 space-y-2">
+                {syncComparison.differences.map((entry) => <div key={`${entry.field}|${entry.key}`} className="border-t pt-2 break-words">
+                  <div className="font-medium">{{ students: "Học viên", sessions: "Lịch gốc", weekOverrides: "Lịch tuần", defaultScheduleVersions: "Lịch mặc định", attendance: "Điểm danh", lessonRecords: "Buổi học", weeklyClosings: "Tuần đã chốt", tuitionPayments: "Thanh toán", occurrenceNotes: "Ghi chú buổi học" }[entry.field]} · {entry.label}</div>
+                  <div>{lang === "vi" ? "Máy" : "Device"}: {syncDifferenceText(entry.local, entry.field, lang)}</div>
+                  <div>Firebase: {syncDifferenceText(entry.remote, entry.field, lang)}</div>
+                </div>)}
+              </div>
+            </details>
+            {backupFeedback && <p role="status" className="text-xs mt-2" style={{ color: "#A65F00" }}>{backupFeedback}</p>}
+            <div className="flex flex-wrap justify-end gap-2 mt-4">
+              <button disabled={syncBusy} onClick={() => setSyncComparison(null)} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{lang === "vi" ? "Để sau" : "Later"}</button>
+              {!syncComparison.restoring && <button disabled={syncBusy} onClick={() => uploadFirebaseBackup({ resolution: syncComparison })} className="px-3 py-2 rounded-lg text-sm text-white" style={{ background: "#087F5B" }}>{lang === "vi" ? "Giữ bản máy → Sao lưu lên" : "Keep device → Upload"}</button>}
+              <button disabled={syncBusy || !syncComparison.target} onClick={() => acceptFirebaseDownload(syncComparison)} className="px-3 py-2 rounded-lg text-sm text-white disabled:opacity-50" style={{ background: "#4C7FAF" }}>{lang === "vi" ? "Giữ bản Firebase → Tải về" : "Keep Firebase → Download"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {activityLogOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: "rgba(27,42,74,0.5)" }} onClick={() => setActivityLogOpen(false)}>
           <div className="w-full max-w-2xl rounded-xl shadow-xl overflow-hidden" style={{ background: "#FFFFFF", maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
@@ -3814,19 +4238,22 @@ function App() {
                 <button onClick={() => importBackupRef.current?.click()} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.importBackup}</button>
                 <input ref={importBackupRef} type="file" accept="application/json,.json" onChange={previewImportedBackup} className="hidden" />
               </div>
-              <div className="text-xs font-medium mt-3 mb-1.5" style={{ color: "#6B7A99" }}>{t.recentSnapshots}</div>
+              <details className="mt-3">
+              <summary className="text-xs font-medium cursor-pointer mb-1.5" style={{ color: "#6B7A99" }}>{lang === "vi" ? "Phiên bản trên máy" : "Device versions"} ({localSnapshots.length})</summary>
               {localSnapshots.length === 0 && <div className="text-xs" style={{ color: "#8896AC" }}>{t.noSnapshots}</div>}
               <div className="flex flex-col gap-1.5">
-                {localSnapshots.slice(0, 5).map((snapshot) => (
+                {localSnapshots.map((snapshot) => (
                   <div key={snapshot.id} className="flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: "#FFFFFF" }}>
                     <div className="flex-1 min-w-0 text-xs">
                       <div>{new Date(snapshot.savedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                      {snapshot.protected && <div style={{ color: "#A65F00" }}>{lang === "vi" ? "Bản dự phòng được giữ riêng" : "Protected recovery copy"}</div>}
                       <div style={{ color: "#8896AC" }}>{snapshot.summary.students} {t.students.toLowerCase()} · {snapshot.summary.lessons} {lang === "vi" ? "bản ghi" : "records"}</div>
                     </div>
                     <button onClick={() => restoreLocalSnapshot(snapshot)} className="px-2 py-1 rounded text-xs" style={{ background: "#FFF4E0", color: "#A65F00" }}>{t.restoreBackup}</button>
                   </div>
                 ))}
               </div>
+              </details>
             </div>
 
             {backupPreview && (
@@ -3862,6 +4289,8 @@ function App() {
                     saved: t.autoBackupSaved,
                     offline: t.autoBackupOffline,
                     conflict: t.autoBackupConflict,
+                    remote: "Có bản cập nhật trên Firebase; chỉ tải về khi bạn chọn.",
+                    verifying: "Đang chờ xác minh lần sao lưu trước.",
                   }[autoBackupStatus] || t.autoBackupIdle}
                   {lastCloudSavedAt && autoBackupStatus === "saved" ? ` · ${new Date(lastCloudSavedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}` : ""}
                 </div>
@@ -3880,18 +4309,19 @@ function App() {
                   <button onClick={checkFirebaseBackup} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.checkCloud}</button>
                 </div>
                 {cloudBackups.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium mb-1.5" style={{ color: "#6B7A99" }}>{t.recentCloudBackups}</div>
+                  <details>
+                    <summary className="text-xs font-medium mb-1.5 cursor-pointer" style={{ color: "#6B7A99" }}>{lang === "vi" ? "Phiên bản Firebase" : "Firebase versions"}</summary>
                     <div className="flex flex-col gap-2">
-                      {cloudBackups.slice(0, 10).map((backup) => (
+                      {[...cloudBackups.filter((backup) => !backup.protected).slice(0, 10), ...cloudBackups.filter((backup) => backup.protected)].map((backup) => (
                         <div key={backup.versionId || backup.revision} className="rounded-lg p-3 text-xs" style={{ background: "#F3F5F7", color: "#6B7A99" }}>
                           <div>Revision {backup.revision} · {new Date(backup.updatedAt).toLocaleString(lang === "vi" ? "vi-VN" : "en-US")}</div>
+                          {backup.protected && <div style={{ color: "#A65F00" }}>{lang === "vi" ? "Bản dự phòng được giữ riêng" : "Protected recovery copy"}</div>}
                           <div className="mt-1">{backup.summary?.students || 0} {t.students.toLowerCase()} · {backup.summary?.sessions || 0} {lang === "vi" ? "lớp" : "classes"} · {backup.summary?.lessons || 0} {lang === "vi" ? "bản ghi" : "records"}</div>
                           <button onClick={() => restoreFirebaseBackup(backup)} className="mt-2 px-3 py-1.5 rounded-lg text-sm" style={{ background: "#FFF4E0", color: "#A65F00" }}>{t.restoreCloud}</button>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
                 <button onClick={copySyncLink} className="px-3 py-2 rounded-lg text-sm" style={{ background: "#F3F5F7" }}>{t.copyLink}</button>
                 {copyFeedback && (
